@@ -151,6 +151,41 @@ export class AnnotationSettingTab extends PluginSettingTab {
           },
         ],
       },
+      // AnnoCard 卡片化管理设置
+      {
+        type: "group",
+        heading: loc.settingsCardTitle,
+        items: [
+          {
+            name: loc.settingsCardDefaultScope,
+            desc: loc.settingsCardDefaultScopeDesc,
+            control: {
+              type: "dropdown",
+              key: "cardDefaultScope",
+              options: {
+                current: loc.settingsCardDefaultScopeCurrent,
+                all: loc.settingsCardDefaultScopeAll,
+              },
+              defaultValue: "current",
+            },
+          },
+          {
+            name: loc.settingsReviewBatchSize,
+            desc: loc.settingsReviewBatchSizeDesc,
+            control: { type: "number", key: "reviewBatchSize", defaultValue: 50 },
+          },
+          {
+            name: loc.settingsShowCardRibbon,
+            desc: loc.settingsShowCardRibbonDesc,
+            control: { type: "toggle", key: "showCardRibbon" },
+          },
+          {
+            name: loc.settingsShowArchivedInCard,
+            desc: loc.settingsShowArchivedInCardDesc,
+            control: { type: "toggle", key: "showArchivedInCard" },
+          },
+        ],
+      },
     ];
   }
 
@@ -280,6 +315,57 @@ export class AnnotationSettingTab extends PluginSettingTab {
             this.plugin.settings.exportFolder = v;
             await this.plugin.saveSettings();
           });
+      });
+
+    // ========== AnnoCard 卡片化管理 ==========
+    new Setting(containerEl).setName(loc.settingsCardTitle).setHeading();
+
+    new Setting(containerEl)
+      .setName(loc.settingsCardDefaultScope)
+      .setDesc(loc.settingsCardDefaultScopeDesc)
+      .addDropdown((dd) => {
+        dd.addOption("current", loc.settingsCardDefaultScopeCurrent);
+        dd.addOption("all", loc.settingsCardDefaultScopeAll);
+        dd.setValue(this.plugin.settings.cardDefaultScope);
+        dd.onChange(async (v) => {
+          this.plugin.settings.cardDefaultScope = v as "current" | "all";
+          await this.plugin.saveSettings();
+        });
+      });
+
+    new Setting(containerEl)
+      .setName(loc.settingsReviewBatchSize)
+      .setDesc(loc.settingsReviewBatchSizeDesc)
+      .addText((txt) => {
+        txt.setValue(String(this.plugin.settings.reviewBatchSize));
+        txt.onChange(async (v) => {
+          const num = parseInt(v, 10);
+          this.plugin.settings.reviewBatchSize = isNaN(num) ? 50 : Math.max(0, num);
+          await this.plugin.saveSettings();
+        });
+      });
+
+    new Setting(containerEl)
+      .setName(loc.settingsShowCardRibbon)
+      .setDesc(loc.settingsShowCardRibbonDesc)
+      .addToggle((toggle) => {
+        toggle.setValue(this.plugin.settings.showCardRibbon);
+        toggle.onChange(async (v) => {
+          this.plugin.settings.showCardRibbon = v;
+          await this.plugin.saveSettings();
+          // ribbon 图标在 onload 时按设置项决定是否注册,改此项需重载插件生效
+        });
+      });
+
+    new Setting(containerEl)
+      .setName(loc.settingsShowArchivedInCard)
+      .setDesc(loc.settingsShowArchivedInCardDesc)
+      .addToggle((toggle) => {
+        toggle.setValue(this.plugin.settings.showArchivedInCard);
+        toggle.onChange(async (v) => {
+          this.plugin.settings.showArchivedInCard = v;
+          await this.plugin.saveSettings();
+        });
       });
   }
 

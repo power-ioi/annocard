@@ -1,4 +1,4 @@
-/* 弹出标注菜单时，原选区的临时高亮（CSS Custom Highlight API，配合 selectionHighlight.ts） */
+﻿/* 弹出标注菜单时，原选区的临时高亮（CSS Custom Highlight API，配合 selectionHighlight.ts） */
 ::highlight(annotation-selection-active) {
   background-color: var(--text-selection);
 }
@@ -1541,3 +1541,1166 @@ ruby[data-annotation-id] rt[data-annotation-id] {
 .annotation-context-menu-item:active {
   background: var(--background-modifier-hover);
 }
+
+/* ============================================================
+   AnnoCard 卡片化管理新增样式
+   ============================================================ */
+
+/* 工具栏按钮(批量模式 / 复习 / 归档切换)
+   与原有 .annotation-sidebar-export-btn 同尺寸,统一侧边栏工具栏视觉 */
+.annotation-sidebar-toolbar-btn {
+  padding: 3px 10px;
+  border: 1px solid var(--background-modifier-border);
+  border-radius: 4px;
+  background: var(--background-primary);
+  color: var(--text-normal);
+  font-size: 12px;
+  cursor: pointer;
+  margin-left: 6px;
+  transition: all 0.15s ease;
+  flex-shrink: 0;
+}
+
+@media (hover: hover) {
+  .annotation-sidebar-toolbar-btn:hover {
+    background: var(--background-modifier-hover);
+    border-color: var(--interactive-accent);
+  }
+}
+
+.annotation-sidebar-toolbar-btn.is-active {
+  background: var(--interactive-accent);
+  color: var(--text-on-accent);
+  border-color: var(--interactive-accent);
+}
+
+/* 标签筛选下拉框 */
+.annotation-sidebar-tag-select {
+  width: 100%;
+  padding: 4px 8px;
+  border: 1px solid var(--background-modifier-border);
+  border-radius: 6px;
+  background: var(--background-primary);
+  color: var(--text-normal);
+  font-size: 12px;
+  box-sizing: border-box;
+  margin-top: 8px;
+  cursor: pointer;
+}
+
+.annotation-sidebar-tag-select:focus {
+  outline: none;
+  border-color: var(--interactive-accent);
+}
+
+/* ========== 批量操作工具栏 ========== */
+.annocard-batch-bar {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 14px;
+  background: var(--background-secondary);
+  border-bottom: 1px solid var(--background-modifier-border);
+  flex-wrap: wrap;
+}
+
+.annocard-batch-bar.is-hidden {
+  display: none;
+}
+
+.annocard-batch-count {
+  font-size: 13px;
+  color: var(--text-normal);
+  font-weight: 500;
+}
+
+.annocard-batch-actions {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+
+.annocard-batch-actions .annotation-btn {
+  font-size: 12px;
+  padding: 3px 10px;
+  min-width: auto;
+  flex: 0;
+}
+
+/* ========== 卡片批量模式 / 选中态 ========== */
+.annotation-sidebar-card.annocard-card-batch {
+  position: relative;
+  padding-left: 32px;
+}
+
+.annocard-card-checkbox {
+  position: absolute;
+  left: 8px;
+  top: 10px;
+  width: 16px;
+  height: 16px;
+  cursor: pointer;
+  margin: 0;
+}
+
+.annotation-sidebar-card.annocard-card-selected {
+  border-color: var(--interactive-accent);
+  background: var(--background-modifier-hover);
+}
+
+.annotation-sidebar-card.annocard-card-archived {
+  opacity: 0.6;
+}
+
+/* ========== 已归档 / 复习徽章 ========== */
+.annocard-badge-archived {
+  display: inline-block;
+  padding: 1px 6px;
+  border-radius: 8px;
+  font-size: 10px;
+  background: var(--background-modifier-error-hover, rgba(127, 127, 127, 0.2));
+  color: var(--text-muted);
+  margin-left: 4px;
+}
+
+.annocard-badge-review {
+  display: inline-block;
+  padding: 1px 6px;
+  border-radius: 8px;
+  font-size: 10px;
+  background: var(--background-modifier-hover);
+  color: var(--text-muted);
+  margin-left: 4px;
+}
+
+/* ========== 卡片标签 chips ========== */
+.annocard-card-tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  margin-bottom: 4px;
+  align-items: center;
+}
+
+.annocard-tag-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 2px 8px;
+  border-radius: 10px;
+  font-size: 11px;
+  background: var(--background-secondary);
+  border: 1px solid var(--background-modifier-border);
+  color: var(--text-normal);
+}
+
+.annocard-tag-chip-text {
+  white-space: nowrap;
+}
+
+.annocard-tag-chip-x {
+  cursor: pointer;
+  color: var(--text-muted);
+  font-weight: bold;
+  font-size: 13px;
+  line-height: 1;
+}
+
+@media (hover: hover) {
+  .annocard-tag-chip-x:hover {
+    color: var(--text-error);
+  }
+}
+
+.annocard-tag-chip-add {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  border: 1px dashed var(--background-modifier-border);
+  color: var(--text-muted);
+  cursor: pointer;
+  font-size: 14px;
+  user-select: none;
+}
+
+@media (hover: hover) {
+  .annocard-tag-chip-add:hover {
+    border-color: var(--interactive-accent);
+    color: var(--interactive-accent);
+  }
+}
+
+/* 内联标签输入框(在 tags 区追加) */
+.annocard-tag-input {
+  padding: 2px 6px;
+  font-size: 11px;
+  border: 1px solid var(--interactive-accent);
+  border-radius: 10px;
+  background: var(--background-primary);
+  color: var(--text-normal);
+  width: auto;
+  min-width: 80px;
+}
+
+.annocard-tag-input:focus {
+  outline: none;
+}
+
+/* TagSuggest popover 条目 */
+.annocard-tag-suggestion {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 4px 10px;
+  font-size: 13px;
+}
+
+.annocard-tag-suggestion-text {
+  color: var(--text-normal);
+}
+
+.annocard-tag-suggestion-count {
+  color: var(--text-muted);
+  font-size: 11px;
+  margin-left: 8px;
+}
+
+/* ========== 内联批注编辑 textarea ========== */
+.annocard-inline-note-edit {
+  width: 100%;
+  min-height: 40px;
+  padding: 6px 8px;
+  background: var(--background-secondary);
+  border: 1px solid var(--interactive-accent);
+  border-radius: 4px;
+  color: var(--text-normal);
+  font-family: inherit;
+  font-size: 12px;
+  line-height: 1.4;
+  resize: vertical;
+  box-sizing: border-box;
+  margin-bottom: 6px;
+}
+
+.annocard-inline-note-edit:focus {
+  outline: none;
+}
+
+/* 卡片内"编辑"按钮(铅笔) */
+.annocard-card-edit-btn {
+  font-size: 11px;
+  padding: 2px 8px;
+}
+
+/* ========== 分页加载更多按钮 ========== */
+.annocard-load-more {
+  text-align: center;
+  padding: 12px;
+  color: var(--text-muted);
+  font-size: 12px;
+  cursor: pointer;
+  border: 1px dashed var(--background-modifier-border);
+  border-radius: 6px;
+  margin: 8px 0;
+  transition: all 0.15s ease;
+}
+
+@media (hover: hover) {
+  .annocard-load-more:hover {
+    color: var(--interactive-accent);
+    border-color: var(--interactive-accent);
+  }
+}
+
+/* ========== 批量打标签模态框 ========== */
+.annocard-modal-desc {
+  margin: 8px 0 12px 0;
+  color: var(--text-muted);
+  font-size: 13px;
+}
+
+.annocard-modal-input {
+  width: 100%;
+  padding: 8px 10px;
+  background: var(--background-primary);
+  border: 1px solid var(--background-modifier-border);
+  border-radius: 6px;
+  color: var(--text-normal);
+  font-size: 14px;
+  box-sizing: border-box;
+  margin-bottom: 12px;
+}
+
+.annocard-modal-input:focus {
+  outline: none;
+  border-color: var(--interactive-accent);
+}
+
+.annocard-modal-button-row {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+}
+
+/* ========== 复习模式全屏 overlay ========== */
+.annocard-review-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100vw;
+  height: 100vh;
+  background: var(--background-primary);
+  z-index: 1000;
+  display: flex;
+  flex-direction: column;
+  padding: 24px 32px;
+  box-sizing: border-box;
+}
+
+.annocard-review-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding-bottom: 16px;
+  border-bottom: 1px solid var(--background-modifier-border);
+  margin-bottom: 24px;
+  flex-shrink: 0;
+}
+
+.annocard-review-title {
+  font-weight: 600;
+  font-size: 18px;
+  color: var(--text-normal);
+}
+
+.annocard-review-progress {
+  font-size: 14px;
+  color: var(--text-muted);
+  margin-left: 16px;
+  margin-right: auto;
+}
+
+.annocard-review-exit {
+  margin-left: auto;
+}
+
+.annocard-review-content {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  overflow-y: auto;
+}
+
+.annocard-review-card {
+  width: 100%;
+  max-width: 800px;
+  background: var(--background-secondary);
+  border: 1px solid var(--background-modifier-border);
+  border-left-width: 4px;
+  border-radius: 8px;
+  padding: 24px 32px;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.annocard-review-card-header {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  font-size: 13px;
+  color: var(--text-muted);
+}
+
+.annocard-review-card-file {
+  font-weight: 500;
+}
+
+.annocard-review-card-text {
+  font-size: 20px;
+  line-height: 1.5;
+  color: var(--text-normal);
+  word-break: break-word;
+  white-space: pre-wrap;
+}
+
+.annocard-review-card-note {
+  font-size: 15px;
+  line-height: 1.5;
+  color: var(--text-muted);
+  padding: 12px 16px;
+  background: var(--background-primary);
+  border-radius: 6px;
+  word-break: break-word;
+  white-space: pre-wrap;
+}
+
+.annocard-review-actions {
+  display: flex;
+  justify-content: center;
+  gap: 12px;
+  flex-wrap: wrap;
+  padding-top: 8px;
+}
+
+.annocard-review-actions .annotation-btn {
+  min-width: 100px;
+  font-size: 14px;
+  padding: 8px 16px;
+}
+
+.annocard-review-actions .annotation-btn:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+.annocard-review-again {
+  border-color: var(--text-warning);
+  color: var(--text-warning);
+}
+
+.annocard-review-mastered {
+  background: var(--color-green, #26c281);
+  border-color: var(--color-green, #26c281);
+  color: var(--text-on-accent);
+}
+
+/* 复习完成统计 */
+.annocard-review-complete {
+  text-align: center;
+  padding: 48px 24px;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  align-items: center;
+}
+
+.annocard-review-stat {
+  font-size: 20px;
+  font-weight: 600;
+  color: var(--text-normal);
+}
+
+.annocard-review-again-count {
+  font-size: 14px;
+  color: var(--text-muted);
+}
+
+/* ============================================================
+   AnnoCard 卡片视觉美化 — 借鉴 HiLighter 设计语言
+   特性：毛玻璃 / 左侧色条 / 悬浮拉出 / 柔和阴影 / 径向渐变背景
+   ============================================================ */
+
+/* —— 主题变量：粉色强调色（亮/暗）—— */
+.theme-light {
+  --annocard-accent: #E83C91;
+  --annocard-accent-rgb: 232, 60, 145;
+  --annocard-glass-bg: rgba(255, 255, 255, 0.55);
+  --annocard-glass-border: rgba(0, 0, 0, 0.06);
+  --annocard-glass-hover: rgba(255, 255, 255, 0.75);
+}
+.theme-dark {
+  --annocard-accent: #FF8FB7;
+  --annocard-accent-rgb: 255, 143, 183;
+  --annocard-glass-bg: rgba(40, 40, 40, 0.55);
+  --annocard-glass-border: rgba(255, 255, 255, 0.08);
+  --annocard-glass-hover: rgba(60, 60, 60, 0.7);
+}
+
+/* —— 卡片侧边栏容器：径向渐变背景 —— */
+.annotation-sidebar-view,
+.annotation-sidebar-content {
+  background: var(--background-secondary);
+  background-image: radial-gradient(circle at top right,
+    rgba(var(--annocard-accent-rgb), 0.06),
+    transparent 55%);
+}
+
+/* —— 工具栏：毛玻璃卡片 —— */
+.annotation-sidebar-toolbar {
+  background: var(--annocard-glass-bg) !important;
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border: 1px solid var(--annocard-glass-border);
+  border-radius: 12px;
+  padding: 12px;
+  box-shadow: 0 4px 15px rgba(0, 0, 0, 0.05);
+}
+
+/* —— 工具栏按钮：统一毛玻璃风 —— */
+.annotation-sidebar-toolbar-btn {
+  border: none !important;
+  border-radius: 8px !important;
+  font-size: 0.82em;
+  font-weight: 500;
+  padding: 8px 12px !important;
+  background: rgba(var(--background-secondary-rgb), 0.4) !important;
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  color: var(--text-muted);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06),
+              inset 0 1px 0 rgba(255, 255, 255, 0.15);
+  transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+}
+.annotation-sidebar-toolbar-btn:hover {
+  background: rgba(var(--background-secondary-rgb), 0.7) !important;
+  color: var(--text-normal);
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
+  border-color: transparent !important;
+}
+.annotation-sidebar-toolbar-btn.is-active {
+  background: var(--annocard-accent) !important;
+  color: #fff;
+  border-color: transparent !important;
+  box-shadow: 0 4px 14px rgba(var(--annocard-accent-rgb), 0.35);
+}
+.theme-dark .annotation-sidebar-toolbar-btn {
+  background: rgba(255, 255, 255, 0.05) !important;
+}
+.theme-dark .annotation-sidebar-toolbar-btn:hover {
+  background: rgba(255, 255, 255, 0.1) !important;
+}
+
+/* —— 搜索框：聚焦时粉色光环 —— */
+.annotation-sidebar-search {
+  background: var(--background-primary) !important;
+  border: 1px solid var(--annocard-glass-border) !important;
+  border-radius: 8px !important;
+  box-shadow: inset 0 1px 3px rgba(0, 0, 0, 0.05);
+  transition: all 0.25s;
+}
+.annotation-sidebar-search:focus {
+  border-color: var(--annocard-accent) !important;
+  box-shadow: 0 0 0 3px rgba(var(--annocard-accent-rgb), 0.15);
+  outline: none;
+}
+
+/* —— 标签筛选下拉框：毛玻璃 —— */
+.annotation-sidebar-tag-select {
+  background: rgba(var(--background-secondary-rgb), 0.4) !important;
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  border: none !important;
+  border-radius: 8px !important;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06),
+              inset 0 1px 0 rgba(255, 255, 255, 0.15);
+}
+.theme-dark .annotation-sidebar-tag-select {
+  background: rgba(255, 255, 255, 0.05) !important;
+}
+
+/* —— 主卡片：HiLighter 风格（左侧色条 + 毛玻璃 + 拉出动画）—— */
+.annotation-sidebar-card {
+  background: var(--annocard-glass-bg);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border: 1px solid var(--annocard-glass-border);
+  border-left: 4px solid transparent;
+  border-radius: 0 12px 12px 0;
+  padding: 12px 14px;
+  margin-bottom: 6px;
+  box-shadow: 2px 2px 10px rgba(0, 0, 0, 0.05);
+  transition: transform 0.2s, box-shadow 0.2s, background 0.2s, border-color 0.2s;
+  position: relative;
+  overflow: hidden;
+}
+
+/* 左侧装饰阴影渐变（伪元素） */
+.annotation-sidebar-card::before {
+  content: "";
+  position: absolute;
+  left: 0;
+  top: 0;
+  bottom: 0;
+  width: 6px;
+  background: linear-gradient(to right, rgba(0, 0, 0, 0.07), transparent);
+  pointer-events: none;
+  z-index: 2;
+}
+.theme-dark .annotation-sidebar-card::before {
+  background: linear-gradient(to right, rgba(0, 0, 0, 0.4), transparent);
+}
+
+/* 悬浮：向右拉出 + 阴影加深 */
+@media (hover: hover) {
+  .annotation-sidebar-card:hover {
+    transform: translateX(4px);
+    box-shadow: 4px 8px 20px rgba(0, 0, 0, 0.1);
+    background: var(--annocard-glass-hover);
+  }
+}
+
+/* —— 左侧色条：用 annotation-list-dot 的色变量映射 —— */
+/* 通过 card 上的颜色类设置 border-left-color */
+.annotation-sidebar-card .annotation-list-dot.ac-1 { --annocard-card-color: var(--annotation-dot-color1, #ff6b6b); }
+.annotation-sidebar-card .annotation-list-dot.ac-2 { --annocard-card-color: var(--annotation-dot-color2, #54a0ff); }
+.annotation-sidebar-card .annotation-list-dot.ac-3 { --annocard-card-color: var(--annotation-dot-color3, #ffd43b); }
+.annotation-sidebar-card .annotation-list-dot.ac-4 { --annocard-card-color: var(--annotation-dot-color4, #26c281); }
+.annotation-sidebar-card .annotation-list-dot.ac-5 { --annocard-card-color: var(--annotation-dot-color5, #9b59b6); }
+.annotation-sidebar-card .annotation-list-dot.ac-6 { --annocard-card-color: var(--annotation-dot-color6, #ff9f43); }
+.annotation-sidebar-card .annotation-list-dot.ac-7 { --annocard-card-color: var(--annotation-dot-color7, #00d2d3); }
+.annotation-sidebar-card .annotation-list-dot.ac-8 { --annocard-card-color: var(--annotation-dot-color8, #f368e0); }
+.annotation-sidebar-card .annotation-list-dot.ac-9 { --annocard-card-color: var(--annotation-dot-color9, #8395a7); }
+.annotation-sidebar-card .annotation-list-dot.ac-10 { --annocard-card-color: var(--annotation-dot-color10, #7f8c3f); }
+
+/* 当 card 内含色点时，把色点的颜色应用到左侧色条 */
+.annotation-sidebar-card:has(.annotation-list-dot.ac-1) { border-left-color: var(--annotation-dot-color1, #ff6b6b); }
+.annotation-sidebar-card:has(.annotation-list-dot.ac-2) { border-left-color: var(--annotation-dot-color2, #54a0ff); }
+.annotation-sidebar-card:has(.annotation-list-dot.ac-3) { border-left-color: var(--annotation-dot-color3, #ffd43b); }
+.annotation-sidebar-card:has(.annotation-list-dot.ac-4) { border-left-color: var(--annotation-dot-color4, #26c281); }
+.annotation-sidebar-card:has(.annotation-list-dot.ac-5) { border-left-color: var(--annotation-dot-color5, #9b59b6); }
+.annotation-sidebar-card:has(.annotation-list-dot.ac-6) { border-left-color: var(--annotation-dot-color6, #ff9f43); }
+.annotation-sidebar-card:has(.annotation-list-dot.ac-7) { border-left-color: var(--annotation-dot-color7, #00d2d3); }
+.annotation-sidebar-card:has(.annotation-list-dot.ac-8) { border-left-color: var(--annotation-dot-color8, #f368e0); }
+.annotation-sidebar-card:has(.annotation-list-dot.ac-9) { border-left-color: var(--annotation-dot-color9, #8395a7); }
+.annotation-sidebar-card:has(.annotation-list-dot.ac-10) { border-left-color: var(--annotation-dot-color10, #7f8c3f); }
+
+/* —— 卡片头部：颜色圆点带光晕 —— */
+.annotation-sidebar-card-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 8px;
+  flex-wrap: wrap;
+}
+.annotation-sidebar-card-header .annotation-list-dot {
+  width: 12px;
+  height: 12px;
+  box-shadow: 0 0 8px currentColor;
+  filter: brightness(1.1);
+}
+
+/* —— 文件名链接样式 —— */
+.annotation-sidebar-card-filename {
+  font-size: 11px;
+  color: var(--annocard-accent);
+  font-weight: 500;
+  text-decoration: none;
+  margin-left: auto;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  max-width: 40%;
+}
+.annotation-sidebar-card-filename:hover {
+  text-decoration: underline;
+}
+
+/* —— 时间戳：更柔和 —— */
+.annotation-sidebar-card-time {
+  font-size: 10.5px;
+  color: var(--text-faint);
+  font-variant-numeric: tabular-nums;
+}
+
+/* —— 标注文字：稍大、可读 —— */
+.annotation-sidebar-card-text {
+  font-size: 13.5px;
+  color: var(--text-normal);
+  line-height: 1.55;
+  word-break: break-word;
+  margin: 4px 0 6px;
+  font-family: var(--font-text, inherit);
+}
+
+/* —— 批注：虚线边框小卡片 —— */
+.annotation-sidebar-card-note {
+  font-size: 12.5px;
+  color: var(--text-muted);
+  line-height: 1.5;
+  padding: 10px 12px;
+  background: rgba(var(--background-secondary-rgb), 0.4);
+  border: 1px dashed var(--annocard-glass-border);
+  border-radius: 10px;
+  margin: 4px 0 6px;
+  font-style: italic;
+}
+
+/* —— 标签 chips：圆角药丸 —— */
+.annocard-card-tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  margin: 6px 0;
+}
+.annocard-tag-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 2px 8px;
+  background: rgba(var(--annocard-accent-rgb), 0.12);
+  color: var(--annocard-accent);
+  border: 1px solid rgba(var(--annocard-accent-rgb), 0.2);
+  border-radius: 12px;
+  font-size: 11px;
+  font-weight: 500;
+  transition: all 0.2s;
+}
+.annocard-tag-chip:hover {
+  background: rgba(var(--annocard-accent-rgb), 0.2);
+  transform: translateY(-1px);
+}
+.annocard-tag-chip-text {
+  pointer-events: none;
+}
+.annocard-tag-chip-x {
+  cursor: pointer;
+  padding: 0 2px;
+  opacity: 0.6;
+  font-weight: bold;
+  font-size: 12px;
+}
+.annocard-tag-chip-x:hover {
+  opacity: 1;
+  color: #ff5e5e;
+}
+.annocard-tag-chip-add {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  background: rgba(var(--background-secondary-rgb), 0.4);
+  color: var(--text-muted);
+  cursor: pointer;
+  font-size: 14px;
+  font-weight: 500;
+  transition: all 0.2s;
+  border: 1px dashed var(--annocard-glass-border);
+}
+.annocard-tag-chip-add:hover {
+  background: var(--annocard-accent);
+  color: #fff;
+  transform: rotate(90deg);
+  border-color: transparent;
+}
+
+/* —— 操作按钮：HiLighter 风格 —— */
+.annotation-sidebar-card-actions {
+  display: flex;
+  gap: 6px;
+  margin-top: 8px;
+}
+.annotation-sidebar-card-actions .annotation-btn {
+  border: none !important;
+  border-radius: 8px !important;
+  font-size: 0.8em;
+  font-weight: 500;
+  padding: 5px 12px !important;
+  background: rgba(var(--background-secondary-rgb), 0.4) !important;
+  color: var(--text-muted) !important;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.05);
+  transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+  min-width: auto;
+  flex: 0;
+}
+.annotation-sidebar-card-actions .annotation-btn:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 4px 10px rgba(0, 0, 0, 0.08);
+}
+.annotation-sidebar-card-actions .annotation-btn-secondary:hover {
+  background: var(--annocard-accent) !important;
+  color: #fff !important;
+}
+.annotation-sidebar-card-actions .annotation-btn-danger:hover {
+  background: #ff5e5e !important;
+  color: #fff !important;
+}
+.theme-dark .annotation-sidebar-card-actions .annotation-btn {
+  background: rgba(255, 255, 255, 0.05) !important;
+}
+.theme-dark .annotation-sidebar-card-actions .annotation-btn:hover {
+  background: rgba(255, 255, 255, 0.12) !important;
+}
+
+/* —— 徽章：归档/复习 —— */
+.annocard-badge-archived {
+  display: inline-block;
+  padding: 2px 8px;
+  border-radius: 10px;
+  font-size: 10px;
+  font-weight: 500;
+  background: rgba(127, 127, 127, 0.18);
+  color: var(--text-muted);
+  border: 1px solid rgba(127, 127, 127, 0.2);
+}
+.annocard-badge-review {
+  display: inline-block;
+  padding: 2px 8px;
+  border-radius: 10px;
+  font-size: 10px;
+  font-weight: 500;
+  background: rgba(var(--annocard-accent-rgb), 0.15);
+  color: var(--annocard-accent);
+  border: 1px solid rgba(var(--annocard-accent-rgb), 0.25);
+}
+
+/* —— 批量工具栏：毛玻璃 —— */
+.annocard-batch-bar {
+  background: var(--annocard-glass-bg);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border-bottom: 1px solid var(--annocard-glass-border);
+  border-radius: 0 0 12px 12px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04);
+}
+
+/* —— 选中态：粉色光环 —— */
+.annotation-sidebar-card.annocard-card-selected {
+  border-color: var(--annocard-accent);
+  background: rgba(var(--annocard-accent-rgb), 0.08);
+  box-shadow: 0 0 0 2px rgba(var(--annocard-accent-rgb), 0.2),
+              4px 8px 20px rgba(0, 0, 0, 0.08);
+}
+.annotation-sidebar-card.annocard-card-selected:hover {
+  transform: translateX(4px);
+}
+
+/* —— 复习模式覆盖层：毛玻璃 + 粉色主题 —— */
+.annocard-review-overlay {
+  background: rgba(0, 0, 0, 0.7);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+}
+.annocard-review-card {
+  background: var(--annocard-glass-bg);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  border: 1px solid var(--annocard-glass-border);
+  border-left: 6px solid var(--annocard-accent);
+  border-radius: 0 20px 20px 0;
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3),
+              0 0 40px rgba(var(--annocard-accent-rgb), 0.15);
+}
+.annocard-review-card-text {
+  font-size: 18px;
+  line-height: 1.7;
+  font-family: var(--font-text, inherit);
+}
+.annocard-review-card-note {
+  background: rgba(var(--background-secondary-rgb), 0.4);
+  border: 1px dashed var(--annocard-glass-border);
+  border-radius: 12px;
+  padding: 14px 18px;
+  font-style: italic;
+}
+.annocard-review-actions .annotation-btn {
+  border: none !important;
+  border-radius: 10px !important;
+  font-size: 0.95em;
+  font-weight: 500;
+  padding: 10px 20px !important;
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+  transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+}
+.annocard-review-actions .annotation-btn:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 6px 18px rgba(0, 0, 0, 0.15);
+}
+.annocard-review-again {
+  background: rgba(var(--background-secondary-rgb), 0.5) !important;
+  color: var(--text-normal) !important;
+}
+.annocard-review-again:hover {
+  background: var(--annocard-accent) !important;
+  color: #fff !important;
+}
+.annocard-review-mastered {
+  background: rgba(38, 194, 129, 0.15) !important;
+  color: #26c281 !important;
+}
+.annocard-review-mastered:hover {
+  background: #26c281 !important;
+  color: #fff !important;
+}
+
+/* —— 移动端适配：减小位移、保留毛玻璃 —— */
+.is-mobile .annotation-sidebar-card:hover,
+.is-tablet .annotation-sidebar-card:hover {
+  transform: none;
+}
+.is-mobile .annotation-sidebar-card {
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
+  background: var(--background-primary);
+}
+.is-mobile .annotation-sidebar-toolbar,
+.is-mobile .annocard-batch-bar {
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
+}
+
+/* ============================================================
+   HiLighter 风格侧边栏布局 — 顶部彩色标签 / 检索筛选分离
+   ============================================================ */
+
+/* —— 工具栏：HiLighter 毛玻璃卡片 —— */
+.annotation-sidebar-view .annotation-sidebar-toolbar.hl-highlight-toolbar {
+  background: var(--hl-glass-bg, var(--annocard-glass-bg));
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border: 1px solid var(--hl-glass-border, var(--annocard-glass-border));
+  border-radius: 12px;
+  padding: 10px;
+  margin-bottom: 10px;
+  box-shadow: 0 4px 15px rgba(0, 0, 0, 0.05);
+  border-bottom: none;
+}
+
+/* 顶部行：标签 + 按钮组 */
+.hl-toolbar-top {
+  display: flex;
+  gap: 8px;
+  width: 100%;
+  align-items: stretch;
+}
+
+/* HiLighter 彩色标签按钮（本文/全库） */
+.hl-btn-subtle.annotation-sidebar-tab {
+  flex: 1;
+  border: none !important;
+  border-radius: 8px !important;
+  font-size: 13px !important;
+  font-weight: 500 !important;
+  padding: 10px 12px !important;
+  background: rgba(var(--background-secondary-rgb), 0.4) !important;
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  color: var(--text-muted) !important;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  cursor: pointer;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06),
+              inset 0 1px 0 rgba(255, 255, 255, 0.15) !important;
+  appearance: none;
+  border-bottom: none !important;
+}
+.hl-btn-subtle.annotation-sidebar-tab:hover {
+  background: rgba(var(--background-secondary-rgb), 0.7) !important;
+  color: var(--text-normal) !important;
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08) !important;
+}
+.hl-btn-subtle.annotation-sidebar-tab.is-active {
+  background: var(--annocard-accent) !important;
+  color: #fff !important;
+  box-shadow: 0 4px 14px rgba(var(--annocard-accent-rgb), 0.35) !important;
+}
+.theme-dark .hl-btn-subtle.annotation-sidebar-tab {
+  background: rgba(255, 255, 255, 0.05) !important;
+}
+.theme-dark .hl-btn-subtle.annotation-sidebar-tab:hover {
+  background: rgba(255, 255, 255, 0.1) !important;
+}
+
+/* 操作按钮组 */
+.hl-toolbar-actions {
+  display: flex;
+  gap: 6px;
+  flex-shrink: 0;
+}
+
+/* HiLighter 风格小按钮（导出/批量/复习/排序） */
+.hl-btn-all,
+.hl-toolbar-actions .hl-color-select {
+  border: none !important;
+  border-radius: 8px !important;
+  font-size: 12px !important;
+  font-weight: 500 !important;
+  padding: 8px 10px !important;
+  background: rgba(var(--background-secondary-rgb), 0.4) !important;
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  color: var(--text-muted) !important;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  cursor: pointer;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06),
+              inset 0 1px 0 rgba(255, 255, 255, 0.15) !important;
+  white-space: nowrap;
+}
+.hl-btn-all:hover {
+  background: rgba(var(--background-secondary-rgb), 0.7) !important;
+  color: var(--text-normal) !important;
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08) !important;
+}
+.hl-btn-all.is-active {
+  background: var(--annocard-accent) !important;
+  color: #fff !important;
+  box-shadow: 0 4px 14px rgba(var(--annocard-accent-rgb), 0.35) !important;
+}
+.hl-btn-all.is-hidden { display: none !important; }
+.theme-dark .hl-btn-all,
+.theme-dark .hl-toolbar-actions .hl-color-select {
+  background: rgba(255, 255, 255, 0.05) !important;
+}
+.theme-dark .hl-btn-all:hover {
+  background: rgba(255, 255, 255, 0.1) !important;
+}
+
+/* 排序下拉 */
+.hl-toolbar-actions .hl-color-select.annotation-sidebar-sort-select {
+  min-width: 80px;
+  text-align: center;
+  text-align-last: center;
+  appearance: none;
+  -webkit-appearance: none;
+  padding: 8px 6px !important;
+}
+.hl-toolbar-actions .hl-color-select.annotation-sidebar-sort-select:hover {
+  background: rgba(var(--background-secondary-rgb), 0.7) !important;
+  color: var(--text-normal) !important;
+}
+
+/* —— 筛选区域（检索 + 筛选 两行） —— */
+.hl-filter-area {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 0 2px 10px;
+}
+
+/* 行标签 */
+.hl-row-label {
+  font-size: 12px;
+  color: var(--text-muted);
+  min-width: 32px;
+  flex-shrink: 0;
+  font-weight: 500;
+}
+
+/* 检索行 */
+.hl-search-row {
+  display: flex;
+  gap: 8px;
+  width: 100%;
+  align-items: center;
+}
+
+/* HiLighter 搜索框 */
+.hl-search-input.annotation-sidebar-search-input {
+  flex: 1;
+  min-width: 0;
+  border-radius: 4px !important;
+  background: var(--background-primary) !important;
+  border: 1px solid var(--hl-glass-border, var(--annocard-glass-border)) !important;
+  font-size: 13px !important;
+  padding: 8px 12px !important;
+  margin-bottom: 0 !important;
+  transition: all 0.3s;
+  box-shadow: inset 0 1px 3px rgba(0, 0, 0, 0.05) !important;
+}
+.hl-search-input.annotation-sidebar-search-input:focus {
+  border-color: var(--annocard-accent) !important;
+  box-shadow: 0 0 0 3px rgba(var(--annocard-accent-rgb), 0.15) !important;
+}
+
+/* 筛选行 */
+.hl-color-row {
+  display: flex;
+  gap: 10px;
+  width: 100%;
+  align-items: center;
+  flex-wrap: wrap;
+}
+
+/* HiLighter 颜色圆点 */
+.hl-h-color-dot.annotation-sidebar-color-btn {
+  width: 26px;
+  height: 26px;
+  border-radius: 50%;
+  cursor: pointer;
+  border: none !important;
+  padding: 0 !important;
+  transition: transform 0.2s, box-shadow 0.2s;
+  position: relative;
+  flex-shrink: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 14px;
+  line-height: 1;
+}
+.hl-h-color-dot.annotation-sidebar-color-btn:hover {
+  transform: scale(1.35);
+}
+.hl-h-color-dot.annotation-sidebar-color-btn.is-active {
+  transform: scale(1.2);
+  box-shadow: 0 0 0 2px var(--annocard-accent), 0 0 12px rgba(var(--annocard-accent-rgb), 0.4);
+}
+
+/* 全部按钮（彩虹圈） */
+.hl-h-color-dot.hl-dot-all {
+  background: conic-gradient(from 0deg, #ff6b6b, #54a0ff, #ffd43b, #26c281, #9b59b6, #ff6b6b) !important;
+  box-shadow: 0 0 10px rgba(128, 128, 128, 0.3);
+}
+.hl-h-color-dot.hl-dot-all.active {
+  box-shadow: 0 0 0 2px var(--annocard-accent), 0 0 12px rgba(var(--annocard-accent-rgb), 0.4);
+}
+
+/* 颜色圆点 — 复用 annotation-list-dot 的颜色变量 */
+.hl-h-color-dot.ac-1 { background: var(--annotation-dot-color1, #ff6b6b) !important; box-shadow: 0 0 10px rgba(255, 107, 107, 0.3); }
+.hl-h-color-dot.ac-2 { background: var(--annotation-dot-color2, #54a0ff) !important; box-shadow: 0 0 10px rgba(84, 160, 255, 0.3); }
+.hl-h-color-dot.ac-3 { background: var(--annotation-dot-color3, #ffd43b) !important; box-shadow: 0 0 10px rgba(255, 212, 59, 0.3); }
+.hl-h-color-dot.ac-4 { background: var(--annotation-dot-color4, #26c281) !important; box-shadow: 0 0 10px rgba(38, 194, 129, 0.3); }
+.hl-h-color-dot.ac-5 { background: var(--annotation-dot-color5, #9b59b6) !important; box-shadow: 0 0 10px rgba(155, 89, 182, 0.3); }
+.hl-h-color-dot.ac-6 { background: var(--annotation-dot-color6, #ff9f43) !important; box-shadow: 0 0 10px rgba(255, 159, 67, 0.3); }
+.hl-h-color-dot.ac-7 { background: var(--annotation-dot-color7, #00d2d3) !important; box-shadow: 0 0 10px rgba(0, 210, 211, 0.3); }
+.hl-h-color-dot.ac-8 { background: var(--annotation-dot-color8, #f368e0) !important; box-shadow: 0 0 10px rgba(243, 104, 224, 0.3); }
+.hl-h-color-dot.ac-9 { background: var(--annotation-dot-color9, #8395a7) !important; box-shadow: 0 0 10px rgba(131, 149, 167, 0.3); }
+.hl-h-color-dot.ac-10 { background: var(--annotation-dot-color10, #7f8c3f) !important; box-shadow: 0 0 10px rgba(127, 140, 63, 0.3); }
+
+/* 标签筛选下拉（HiLighter 风格） */
+.hl-color-row .hl-color-select.annotation-sidebar-tag-select {
+  min-width: 90px;
+  flex-shrink: 0;
+}
+
+/* 侧边栏容器背景：HiLighter 径向渐变 */
+.annotation-sidebar-view,
+.annotation-sidebar-content {
+  background: var(--background-secondary);
+  background-image: radial-gradient(circle at top right,
+    rgba(var(--annocard-accent-rgb), 0.06),
+    transparent 55%);
+  padding: 12px;
+  gap: 0;
+}
+
+/* 侧边栏标题（HiLighter 隐藏式，已用标签页替代） */
+.annotation-sidebar-title { display: none; }
+
+/* 隐藏旧的 tabs 和 color-filters */
+.annotation-sidebar-tabs { display: none; }
+.annotation-sidebar-color-filters { display: none; }
+.annotation-sidebar-search { display: none; }
+
+/* 空状态文本居中 */
+.annotation-sidebar-empty {
+  text-align: center;
+  padding: 40px 20px;
+  color: var(--text-faint);
+  font-size: 14px;
+}
+
+/* 移动端：缩小圆点 */
+.is-mobile .hl-h-color-dot.annotation-sidebar-color-btn {
+  width: 22px;
+  height: 22px;
+}
+.is-mobile .hl-btn-subtle.annotation-sidebar-tab,
+.is-mobile .hl-btn-all {
+  font-size: 11px !important;
+  padding: 7px 8px !important;
+}
+
+

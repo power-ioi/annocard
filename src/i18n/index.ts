@@ -146,6 +146,55 @@ export interface LocaleDict {
   // 标注卡片 (AnnotationCard)
   cardOpen: string;
   cardDelete: string;
+  // AnnoCard 卡片化管理新增
+  cardArchived: string;
+  cardReviewCount: (n: number) => string;
+  cardEdit: string;
+  cardShowArchived: string;
+  cardHideArchived: string;
+  cardTagFilter: string;
+  cardTagFilterAll: string;
+  cardBatchMode: string;
+  cardBatchDelete: string;
+  cardBatchTag: string;
+  cardBatchCancel: string;
+  cardBatchSelected: (n: number) => string;
+  cardLoadMore: string;
+  cardReviewStart: string;
+  cardReviewExit: string;
+  cardReviewNext: string;
+  cardReviewPrev: string;
+  cardReviewAgain: string;
+  cardReviewMastered: string;
+  cardReviewEmpty: string;
+  cardReviewStat: (n: number, m: number) => string;
+  cardReviewProgress: (cur: number, total: number) => string;
+  cardTagAddPlaceholder: string;
+  cardTagAddConfirm: string;
+  cardTagAddTitle: string;
+  cardTagAddToSelected: string;
+  cardConfirmBatchDelete: (n: number) => string;
+  cardNoticeTagAdded: string;
+  cardNoticeTagRemoved: string;
+  cardNoticeBatchDeleted: (n: number) => string;
+  cardNoticeBatchTagged: (n: number) => string;
+  cardNoticeNoteUpdated: string;
+  cardNoticeArchived: string;
+  cardNoticeReviewSaved: string;
+  cardNoticeNoSelection: string;
+  commandCardSidebar: string;
+  commandStartReview: string;
+  settingsCardTitle: string;
+  settingsCardDefaultScope: string;
+  settingsCardDefaultScopeDesc: string;
+  settingsCardDefaultScopeCurrent: string;
+  settingsCardDefaultScopeAll: string;
+  settingsReviewBatchSize: string;
+  settingsReviewBatchSizeDesc: string;
+  settingsShowCardRibbon: string;
+  settingsShowCardRibbonDesc: string;
+  settingsShowArchivedInCard: string;
+  settingsShowArchivedInCardDesc: string;
 
   // 提示框 (TooltipManager)
   tooltipLabel: string;

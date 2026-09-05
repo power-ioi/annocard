@@ -98,6 +98,13 @@ export default class AnnotationPlugin extends Plugin {
       void this.toggleAnnotationView();
     });
 
+    // AnnoCard:卡片侧边栏 ribbon 图标(可由设置关闭)
+    if (this.settings.showCardRibbon) {
+      this.addRibbonIcon("lucide-bookmark", t().commandCardSidebar, () => {
+        void this.openCardSidebar();
+      });
+    }
+
     this.addSettingTab(new AnnotationSettingTab(this));
 
     // 注册侧边栏视图
@@ -1232,6 +1239,36 @@ export default class AnnotationPlugin extends Plugin {
     }
   }
 
+  // AnnoCard:打开卡片侧边栏(已打开则聚焦,不切换关闭)
+  // 由 ribbon 图标与"打开卡片侧边栏"命令共用
+  async openCardSidebar(): Promise<void> {
+    const { workspace } = this.app;
+    let leaf = workspace.getLeavesOfType(ANNOTATION_SIDEBAR_VIEW_TYPE)[0];
+    if (!leaf) {
+      const rightLeaf = workspace.getRightLeaf(false);
+      if (!rightLeaf) return;
+      await rightLeaf.setViewState({
+        type: ANNOTATION_SIDEBAR_VIEW_TYPE,
+        active: true,
+      });
+      leaf = rightLeaf;
+    }
+    await workspace.revealLeaf(leaf);
+  }
+
+  // AnnoCard:开始复习模式命令
+  // 确保侧边栏已打开并刷新数据后调用 view.startReview
+  async startReviewCommand(): Promise<void> {
+    await this.openCardSidebar();
+    const leaf = this.app.workspace.getLeavesOfType(ANNOTATION_SIDEBAR_VIEW_TYPE)[0];
+    const view = leaf?.view;
+    if (view instanceof AnnotationSidebarView) {
+      // 重新刷新缓存以反映最新筛选数据
+      await view.refresh();
+      view.startReview();
+    }
+  }
+
   // ========== 图片嵌入修正 ==========
 
   // 标注文件通过 fakeTFile 注入，其 path 指向插件目录，导致 Obsidian 以该目录为基准
@@ -1546,6 +1583,20 @@ export default class AnnotationPlugin extends Plugin {
       id: "toggle-annotation-sidebar",
       name: t().commandSidebar,
       callback: () => { void this.toggleSidebarView(); },
+    });
+
+    // AnnoCard:打开卡片侧边栏(若已关闭则打开,已打开则聚焦,不切换关闭)
+    this.addCommand({
+      id: "open-card-sidebar",
+      name: t().commandCardSidebar,
+      callback: () => { void this.openCardSidebar(); },
+    });
+
+    // AnnoCard:开始复习模式(打开侧边栏并以当前筛选条件启动复习)
+    this.addCommand({
+      id: "start-review",
+      name: t().commandStartReview,
+      callback: () => { void this.startReviewCommand(); },
     });
 
     this.addCommand({

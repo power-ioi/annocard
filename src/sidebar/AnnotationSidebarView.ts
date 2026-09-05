@@ -10,8 +10,15 @@ import type AnnotationPlugin from "../main";
 import { t } from "../i18n";
 import { FolderSuggestModal, FileNameModal, ConfirmOverwriteModal } from "../ui/ExportModal";
 import { sortAnnotations, buildExportContent } from "../utils/exporter";
+import { applyCardFilter, collectTagFrequencies, tagsByFrequency, type CardFilterState } from "../cards/CardFilter";
+import { TagSuggest } from "../cards/TagSuggest";
+import { BatchTagInputModal, batchAddTags, confirmBatchDelete } from "../cards/BatchMode";
+import { ReviewMode } from "../cards/ReviewMode";
 
 export const ANNOTATION_SIDEBAR_VIEW_TYPE = "annotation-sidebar-view";
+
+// AnnoCard 卡片侧边栏:分页大小(>200 条时分页加载,避免一次性渲染卡顿)
+const CARD_PAGE_SIZE = 100;
 
 type SidebarMode = "current" | "all";
 type SortOption = "position-asc" | "position-desc" | "time-asc" | "time-desc" | "color-asc" | "color-desc" | "by-note";
@@ -25,6 +32,14 @@ export class AnnotationSidebarView extends ItemView {
   private searchQuery = "";
   private colorFilter: AnnotationColor | "all" = "all";
   private sortOption: SortOption = "position-asc";
+  // AnnoCard 新增:已归档过滤 + 标签筛选
+  private showArchived: boolean;
+  private tagFilter: Set<string> = new Set();
+  // AnnoCard 批量模式
+  private batchMode = false;
+  private batchSelectedIds: Set<string> = new Set();
+  // AnnoCard 复习模式实例(打开时非空)
+  private reviewMode: ReviewMode | null = null;
 
   // DOM 引用
   private cardListEl: HTMLElement | null = null;
@@ -33,6 +48,15 @@ export class AnnotationSidebarView extends ItemView {
   private exportBtn: HTMLElement | null = null;
   private tabs: Record<SidebarMode, HTMLElement> = { current: null!, all: null! };
   private colorBtns: Map<string, HTMLElement> = new Map();
+  private showArchivedBtn: HTMLElement | null = null;
+  private tagFilterSelect: HTMLSelectElement | null = null;
+  // AnnoCard 工具栏按钮
+  private batchBtn: HTMLElement | null = null;
+  private reviewBtn: HTMLElement | null = null;
+  private batchBar: HTMLElement | null = null;
+  private batchSelectedCount: HTMLElement | null = null;
+  // 标签候选缓存(全库模式刷新时同步,供 TagSuggest 用)
+  private allTagCandidates: string[] = [];
 
   // 详情面板状态
   private detailCardData: AnnotationCardData | null = null;
@@ -56,10 +80,18 @@ export class AnnotationSidebarView extends ItemView {
   // 渲染代际 token：递增，await 之后若已被新代次取代则丢弃，避免过期数据污染 DOM
   private renderGeneration = 0;
 
+  // AnnoCard 分页:当前已渲染的卡片数(从 cachedSortedCards 头部累计)
+  private cachedSortedCards: AnnotationCardData[] = [];
+  private renderedCount = 0;
+
   constructor(leaf: WorkspaceLeaf, plugin: AnnotationPlugin) {
     super(leaf);
     this.plugin = plugin;
     this.fileManager = plugin.fileManager;
+    // AnnoCard:已归档默认隐藏,初值来自设置
+    this.showArchived = !!plugin.settings.showArchivedInCard;
+    // AnnoCard:初值来自设置的默认范围(当前文件 / 全库)
+    this.mode = plugin.settings.cardDefaultScope === "all" ? "all" : "current";
   }
 
   getViewType(): string {
@@ -82,8 +114,17 @@ export class AnnotationSidebarView extends ItemView {
     this.renderToolbar(container);
     this.renderTabs(container);
     this.renderSearchBar(container);
+    this.renderBatchBar(container);
 
     this.cardListEl = container.createDiv({ cls: "annotation-sidebar-card-list" });
+    // AnnoCard:列表区滚动加载更多(分页)
+    if (this.cardListEl) {
+      this.cardListEl.addEventListener("scroll", () => {
+        if (!this.cardListEl) return;
+        const nearBottom = this.cardListEl.scrollTop + this.cardListEl.clientHeight >= this.cardListEl.scrollHeight - 200;
+        if (nearBottom) this.loadMore();
+      });
+    }
 
     // 注册事件
     this.registerEvent(
@@ -135,6 +176,11 @@ export class AnnotationSidebarView extends ItemView {
       window.clearTimeout(this.leafChangeTimer);
       this.leafChangeTimer = null;
     }
+    // AnnoCard:关闭时退出复习模式(若打开)
+    if (this.reviewMode) {
+      this.reviewMode.exit();
+      this.reviewMode = null;
+    }
     this.allAnnotationsCache = null;
     this.detailCardData = null;
   }
@@ -142,23 +188,65 @@ export class AnnotationSidebarView extends ItemView {
   // ========== 渲染方法 ==========
 
   private renderToolbar(container: HTMLElement): void {
-    const toolbar = container.createDiv({ cls: "annotation-sidebar-toolbar" });
-    toolbar.createSpan({ cls: "annotation-sidebar-title", text: t().sidebarTitle });
+    // HiLighter 风格：顶部彩色标签行 + 工具栏按钮
+    const toolbar = container.createDiv({ cls: "annotation-sidebar-toolbar hl-highlight-toolbar" });
 
-    // 导出按钮（仅在当前笔记模式下显示）
-    this.exportBtn = toolbar.createEl("button", {
-      cls: "annotation-sidebar-export-btn",
-      text: t().sidebarExportBtn,
+    // 顶部标签行：模式切换（本文/全库）+ 操作按钮（导出/批量/复习）
+    const topRow = toolbar.createDiv({ cls: "hl-toolbar-top" });
+
+    // HiLighter 风格彩色标签：本文 / 全库
+    this.tabs.current = topRow.createEl("button", {
+      cls: "hl-btn-subtle annotation-sidebar-tab hl-tab-current",
+      text: t().sidebarCurrentNote,
     });
-    this.exportBtn.addEventListener("click", () => { void this.exportCurrentAnnotations(); });
-    this.exportBtn.toggleClass("is-hidden", this.mode !== "current");
+    this.tabs.all = topRow.createEl("button", {
+      cls: "hl-btn-subtle annotation-sidebar-tab hl-tab-all",
+      text: t().sidebarAllNotes,
+    });
+    this.tabs.current.toggleClass("is-active", this.mode === "current");
+    this.tabs.all.toggleClass("is-active", this.mode === "all");
+    this.tabs.current.addEventListener("click", () => this.switchMode("current"));
+    this.tabs.all.addEventListener("click", () => this.switchMode("all"));
 
-    this.sortSelect = toolbar.createEl("select", { cls: "annotation-sidebar-sort-select" });
+    // 右侧操作按钮组
+    const actions = topRow.createDiv({ cls: "hl-toolbar-actions" });
+
+    // 排序下拉（HiLighter 风格）
+    this.sortSelect = actions.createEl("select", { cls: "hl-color-select annotation-sidebar-sort-select" });
     this.sortSelect.addEventListener("change", () => {
       this.sortOption = this.sortSelect!.value as SortOption;
       void this.renderCards();
     });
     this.updateSortOptions();
+
+    // 导出按钮（仅当前笔记模式）
+    this.exportBtn = actions.createEl("button", {
+      cls: "hl-btn-all annotation-sidebar-export-btn",
+      text: t().sidebarExportBtn,
+    });
+    this.exportBtn.addEventListener("click", () => { void this.exportCurrentAnnotations(); });
+    this.exportBtn.toggleClass("is-hidden", this.mode !== "current");
+
+    // 批量模式开关
+    this.batchBtn = actions.createEl("button", {
+      cls: "hl-btn-all annocard-toolbar-batch",
+      text: t().cardBatchMode,
+    });
+    this.batchBtn.toggleClass("is-active", this.batchMode);
+    this.batchBtn.addEventListener("click", () => {
+      this.batchMode = !this.batchMode;
+      this.batchSelectedIds.clear();
+      this.batchBtn?.toggleClass("is-active", this.batchMode);
+      this.updateBatchBar();
+      void this.renderCards();
+    });
+
+    // 复习模式入口
+    this.reviewBtn = actions.createEl("button", {
+      cls: "hl-btn-all annocard-toolbar-review",
+      text: t().cardReviewStart,
+    });
+    this.reviewBtn.addEventListener("click", () => this.startReview());
   }
 
   private updateSortOptions(): void {
@@ -205,13 +293,20 @@ export class AnnotationSidebarView extends ItemView {
     const tabsEl = container.createDiv({ cls: "annotation-sidebar-tabs" });
 
     this.tabs.current = tabsEl.createEl("button", {
-      cls: "annotation-sidebar-tab active",
+      cls: "annotation-sidebar-tab",
       text: t().sidebarCurrentNote,
     });
     this.tabs.all = tabsEl.createEl("button", {
       cls: "annotation-sidebar-tab",
       text: t().sidebarAllNotes,
     });
+    // AnnoCard:按当前 mode 标记 active(初值可能为 "all" 来自设置)
+    this.tabs.current.toggleClass("active", this.mode === "current");
+    this.tabs.all.toggleClass("active", this.mode === "all");
+    // 导出按钮可见性也需同步
+    if (this.exportBtn) {
+      this.exportBtn.toggleClass("is-hidden", this.mode !== "current");
+    }
 
     this.tabs.current.addEventListener("click", () => this.switchMode("current"));
     this.tabs.all.addEventListener("click", () => this.switchMode("all"));
@@ -231,11 +326,16 @@ export class AnnotationSidebarView extends ItemView {
   }
 
   private renderSearchBar(container: HTMLElement): void {
-    const searchBar = container.createDiv({ cls: "annotation-sidebar-search" });
+    // HiLighter 风格：检索行 + 筛选行（分离）
+    const filterArea = container.createDiv({ cls: "hl-filter-area" });
 
-    this.searchInput = searchBar.createEl("input", {
+    // === 检索行 ===
+    const searchRow = filterArea.createDiv({ cls: "hl-search-row" });
+    searchRow.createSpan({ cls: "hl-row-label", text: t().sidebarSearchLabel });
+
+    this.searchInput = searchRow.createEl("input", {
       type: "text",
-      cls: "annotation-sidebar-search-input",
+      cls: "hl-search-input annotation-sidebar-search-input",
       placeholder: t().sidebarSearchPlaceholder,
     });
     this.searchInput.addEventListener("input", () => {
@@ -246,12 +346,30 @@ export class AnnotationSidebarView extends ItemView {
       }, 300);
     });
 
-    // 颜色筛选按钮
-    const colorFilters = searchBar.createDiv({ cls: "annotation-sidebar-color-filters" });
+    // 已归档切换（HiLighter 风格圆角按钮）
+    this.showArchivedBtn = searchRow.createEl("button", {
+      cls: "hl-btn-all annocard-show-archived-btn",
+      text: this.showArchived ? t().cardHideArchived : t().cardShowArchived,
+    });
+    this.showArchivedBtn.toggleClass("is-active", this.showArchived);
+    this.showArchivedBtn.addEventListener("click", () => {
+      this.showArchived = !this.showArchived;
+      if (this.showArchivedBtn) {
+        this.showArchivedBtn.textContent = this.showArchived ? t().cardHideArchived : t().cardShowArchived;
+        this.showArchivedBtn.toggleClass("is-active", this.showArchived);
+      }
+      void this.renderCards();
+    });
 
-    const allBtn = colorFilters.createEl("button", {
-      cls: "annotation-sidebar-color-btn annotation-sidebar-color-all active",
-      text: t().all,
+    // === 筛选行：颜色圆点 ===
+    const colorRow = filterArea.createDiv({ cls: "hl-color-row" });
+    colorRow.createSpan({ cls: "hl-row-label", text: t().sidebarFilterLabel });
+
+    // "全部"按钮（彩虹圈样式）
+    const allBtn = colorRow.createEl("button", {
+      cls: "hl-h-color-dot annotation-sidebar-color-btn annotation-sidebar-color-all active hl-dot-all",
+      text: "🌈",
+      attr: { title: t().all },
     });
     allBtn.addEventListener("click", () => {
       this.colorFilter = "all";
@@ -260,9 +378,11 @@ export class AnnotationSidebarView extends ItemView {
     });
     this.colorBtns.set("all", allBtn);
 
+    // 颜色圆点
     for (const color of getActiveColors(this.plugin.settings)) {
-      const btn = colorFilters.createEl("button", {
-        cls: `annotation-sidebar-color-btn annotation-list-dot ${COLOR_CLASSES[color]}`,
+      const btn = colorRow.createEl("button", {
+        cls: `hl-h-color-dot annotation-sidebar-color-btn ${COLOR_CLASSES[color]} hl-dot-${color}`,
+        attr: { title: this.plugin.settings[`color${color}Label`] ?? "" },
       });
       btn.addEventListener("click", () => {
         this.colorFilter = color;
@@ -271,12 +391,327 @@ export class AnnotationSidebarView extends ItemView {
       });
       this.colorBtns.set(color, btn);
     }
+
+    // 标签筛选（HiLighter 风格下拉）
+    this.tagFilterSelect = colorRow.createEl("select", {
+      cls: "hl-color-select annotation-sidebar-tag-select",
+    });
+    this.tagFilterSelect.addEventListener("change", () => {
+      if (!this.tagFilterSelect) return;
+      const v = this.tagFilterSelect.value;
+      if (!v) {
+        this.tagFilter.clear();
+      } else {
+        this.tagFilter.clear();
+        this.tagFilter.add(v);
+      }
+      void this.renderCards();
+    });
+    this.refreshTagFilterOptions();
+  }
+
+  // 刷新标签筛选下拉框的选项(基于当前缓存的全库/单文件标签集合)
+  private refreshTagFilterOptions(): void {
+    if (!this.tagFilterSelect) return;
+    const loc = t();
+    const tagArr = Array.from(this.tagFilter);
+    const current = tagArr.length > 0 ? tagArr[0]! : "";
+
+    this.tagFilterSelect.empty();
+    // 占位项
+    this.tagFilterSelect.createEl("option", { value: "", text: loc.cardTagFilterAll });
+
+    for (const tag of this.allTagCandidates) {
+      this.tagFilterSelect.createEl("option", { value: tag, text: tag });
+    }
+
+    // 还原选中状态
+    this.tagFilterSelect.value = current;
   }
 
   private updateColorBtnState(): void {
     for (const [key, btn] of this.colorBtns) {
       btn.toggleClass("active", key === this.colorFilter);
     }
+  }
+
+  // ========== 批量模式工具栏 ==========
+
+  // 渲染批量操作工具栏(初始隐藏,批量模式开启时显示)
+  private renderBatchBar(container: HTMLElement): void {
+    this.batchBar = container.createDiv({ cls: "annocard-batch-bar is-hidden" });
+
+    this.batchSelectedCount = this.batchBar.createSpan({ cls: "annocard-batch-count" });
+
+    const actions = this.batchBar.createDiv({ cls: "annocard-batch-actions" });
+    const deleteBtn = actions.createEl("button", {
+      cls: "annotation-btn annotation-btn-danger",
+      text: t().cardBatchDelete,
+    });
+    deleteBtn.addEventListener("click", () => this.handleBatchDelete());
+
+    const tagBtn = actions.createEl("button", {
+      cls: "annotation-btn annotation-btn-secondary",
+      text: t().cardBatchTag,
+    });
+    tagBtn.addEventListener("click", () => this.handleBatchTag());
+
+    const cancelBtn = actions.createEl("button", {
+      cls: "annotation-btn annotation-btn-secondary",
+      text: t().cardBatchCancel,
+    });
+    cancelBtn.addEventListener("click", () => {
+      this.batchMode = false;
+      this.batchSelectedIds.clear();
+      this.batchBtn?.toggleClass("is-active", this.batchMode);
+      this.updateBatchBar();
+      void this.renderCards();
+    });
+
+    this.updateBatchBar();
+  }
+
+  // 更新批量工具栏的可见性与选中计数
+  private updateBatchBar(): void {
+    if (!this.batchBar || !this.batchSelectedCount) return;
+    this.batchBar.toggleClass("is-hidden", !this.batchMode);
+    this.batchSelectedCount.textContent = t().cardBatchSelected(this.batchSelectedIds.size);
+  }
+
+  // 批量选中切换(由卡片复选框触发)
+  private handleToggleSelect(cardData: AnnotationCardData, selected: boolean): void {
+    if (selected) {
+      this.batchSelectedIds.add(cardData.annotation.id);
+    } else {
+      this.batchSelectedIds.delete(cardData.annotation.id);
+    }
+    this.updateBatchBar();
+  }
+
+  // 收集当前选中(基于缓存的卡片数据,以便批量操作能拿到 notePath)
+  private collectSelectedCards(): AnnotationCardData[] {
+    if (this.batchSelectedIds.size === 0) return [];
+    return this.cachedSortedCards.filter((c) => this.batchSelectedIds.has(c.annotation.id));
+  }
+
+  // 批量删除
+  private handleBatchDelete(): void {
+    const selected = this.collectSelectedCards();
+    if (selected.length === 0) {
+      new Notice(t().cardNoticeNoSelection);
+      return;
+    }
+    confirmBatchDelete(this.app, this.fileManager, selected, async () => {
+      // 刷新标注视图
+      const notePaths = new Set(selected.map((c) => c.notePath));
+      for (const notePath of notePaths) {
+        await this.plugin.refreshAnnotationView(notePath);
+      }
+      // 清空选中,重新加载列表
+      this.batchSelectedIds.clear();
+      this.updateBatchBar();
+      await this.refresh();
+    });
+  }
+
+  // 批量打标签
+  private handleBatchTag(): void {
+    const selected = this.collectSelectedCards();
+    if (selected.length === 0) {
+      new Notice(t().cardNoticeNoSelection);
+      return;
+    }
+    new BatchTagInputModal(this.app, async (tags) => {
+      await batchAddTags(this.fileManager, selected, tags);
+      // 刷新标注视图
+      const notePaths = new Set(selected.map((c) => c.notePath));
+      for (const notePath of notePaths) {
+        await this.plugin.refreshAnnotationView(notePath);
+      }
+      // 不清空选中,允许继续操作;重新加载列表以反映新标签
+      await this.refresh();
+    }).open();
+  }
+
+  // ========== 卡片内联编辑 ==========
+
+  // 内联编辑批注:把 noteEl 替换为 textarea,失焦/回车保存
+  private async handleInlineEditNote(cardData: AnnotationCardData, noteEl: HTMLElement): Promise<void> {
+    const parent = noteEl.parentElement;
+    if (!parent) return;
+
+    // 创建 textarea
+    const textarea = document.createElement("textarea");
+    textarea.className = "annocard-inline-note-edit";
+    textarea.value = cardData.annotation.note;
+    textarea.setAttribute("rows", "2");
+    const maxLen = this.plugin.settings.maxNoteLength;
+    textarea.setAttribute("maxlength", String(maxLen));
+
+    parent.replaceChild(textarea, noteEl);
+    textarea.focus();
+    textarea.select();
+
+    let saved = false;
+    const save = async () => {
+      if (saved) return;
+      saved = true;
+      const newNote = textarea.value;
+      if (newNote === cardData.annotation.note) {
+        // 未修改,还原显示
+        parent.replaceChild(noteEl, textarea);
+        return;
+      }
+      try {
+        // 走 fileManager 更新(若标注视图在 source 模式下打开,会通过事件刷新)
+        await this.fileManager.updateAnnotation(cardData.notePath, cardData.annotation.id, { note: newNote });
+        cardData.annotation.note = newNote;
+        // 刷新对应标注视图
+        await this.plugin.refreshAnnotationView(cardData.notePath);
+        // 更新 noteEl 内容
+        noteEl.textContent = newNote;
+        parent.replaceChild(noteEl, textarea);
+        new Notice(t().cardNoticeNoteUpdated);
+      } catch (e) {
+        console.error("内联编辑批注失败:", e);
+        parent.replaceChild(noteEl, textarea);
+      }
+    };
+
+    textarea.addEventListener("blur", () => void save());
+    textarea.addEventListener("keydown", (e) => {
+      // Ctrl/Cmd+Enter 强制保存,Esc 取消
+      if ((e.ctrlKey || e.metaKey) && e.key === "Enter") {
+        e.preventDefault();
+        textarea.blur();
+      } else if (e.key === "Escape") {
+        e.preventDefault();
+        saved = true; // 阻止 blur 保存
+        parent.replaceChild(noteEl, textarea);
+      }
+    });
+  }
+
+  // 内联添加标签:在 tagsEl 内追加输入框,绑定 TagSuggest,确认后追加
+  private handleAddTagInline(cardData: AnnotationCardData, tagsEl: HTMLElement): void {
+    // 已存在输入框则不重复创建
+    const existing = tagsEl.querySelector(".annocard-tag-input");
+    if (existing) {
+      (existing as HTMLInputElement).focus();
+      return;
+    }
+
+    const input = document.createElement("input");
+    input.type = "text";
+    input.className = "annocard-tag-input";
+    input.setAttribute("placeholder", t().cardTagAddPlaceholder);
+    input.setAttribute("size", "12");
+    tagsEl.appendChild(input);
+    input.focus();
+
+    // TagSuggest 绑定
+    const suggest = new TagSuggest(this.app, input, () => this.allTagCandidates);
+    suggest.onSelect((suggestion) => {
+      input.value = suggestion.tag;
+      this.commitTagInput(cardData, input, tagsEl);
+    });
+
+    let committed = false;
+    const commitHandler = () => {
+      if (committed) return;
+      committed = true;
+      this.commitTagInput(cardData, input, tagsEl);
+    };
+
+    input.addEventListener("keydown", (e) => {
+      if (e.key === "Enter") {
+        e.preventDefault();
+        commitHandler();
+      } else if (e.key === "Escape") {
+        e.preventDefault();
+        committed = true;
+        input.remove();
+      }
+    });
+    input.addEventListener("blur", () => {
+      // 失焦时若有输入则提交,否则移除
+      if (input.value.trim()) commitHandler();
+      else input.remove();
+    });
+  }
+
+  // 提交标签输入(由 Enter/blur 触发)
+  private async commitTagInput(
+    cardData: AnnotationCardData,
+    input: HTMLInputElement,
+    tagsEl: HTMLElement
+  ): Promise<void> {
+    const tag = input.value.trim();
+    if (!tag) {
+      input.remove();
+      return;
+    }
+    const existing = cardData.annotation.tags ?? [];
+    if (existing.includes(tag)) {
+      input.remove();
+      return;
+    }
+    try {
+      const merged = [...existing, tag];
+      await this.fileManager.updateAnnotation(cardData.notePath, cardData.annotation.id, { tags: merged });
+      cardData.annotation.tags = merged;
+      // 刷新对应标注视图(可选,标签不显示在原文,只为保持数据一致)
+      await this.plugin.refreshAnnotationView(cardData.notePath);
+      // 重新渲染当前卡片以显示新 chip
+      // 简化:触发全列表刷新(单卡 re-render 需要保存 ref,此处折中)
+      new Notice(t().cardNoticeTagAdded);
+      await this.refresh();
+    } catch (e) {
+      console.error("添加标签失败:", e);
+      input.remove();
+    }
+  }
+
+  // 删除单个标签
+  private async handleRemoveTag(cardData: AnnotationCardData, tag: string): Promise<void> {
+    const existing = cardData.annotation.tags ?? [];
+    const merged = existing.filter((t) => t !== tag);
+    try {
+      await this.fileManager.updateAnnotation(cardData.notePath, cardData.annotation.id, { tags: merged });
+      cardData.annotation.tags = merged;
+      await this.plugin.refreshAnnotationView(cardData.notePath);
+      new Notice(t().cardNoticeTagRemoved);
+      await this.refresh();
+    } catch (e) {
+      console.error("删除标签失败:", e);
+    }
+  }
+
+  // ========== 复习模式 ==========
+
+  // 启动复习模式:取当前筛选下的未归档卡片
+  // 公开:供命令"开始复习"调用
+  startReview(): void {
+    // 已打开则不重复启动
+    if (this.reviewMode) return;
+
+    // 取未归档的卡片(忽略 showArchived 开关,复习只针对未掌握的)
+    const reviewCards = this.cachedSortedCards.filter((c) => !c.annotation.archived);
+    if (reviewCards.length === 0) {
+      new Notice(t().cardReviewEmpty);
+      return;
+    }
+
+    this.reviewMode = new ReviewMode(this.fileManager, reviewCards, {
+      batchSize: this.plugin.settings.reviewBatchSize,
+      onExit: () => {
+        this.reviewMode = null;
+        // 复习可能修改了 archived,重置 allAnnotationsCache 以重新加载
+        this.allAnnotationsCache = null;
+        void this.refresh();
+      },
+    });
+    this.reviewMode.start();
   }
 
   // ========== 数据加载 ==========
@@ -322,27 +757,97 @@ export class AnnotationSidebarView extends ItemView {
     // 检查点：数据加载后若已被更新的渲染取代，丢弃本次（防重复卡片 / 防混入）
     if (myGen !== this.renderGeneration) return;
 
-    const filtered = this.applyFilters(cards);
+    // AnnoCard:更新标签候选缓存(供 TagSuggest 与标签筛选下拉用)
+    this.allTagCandidates = tagsByFrequency(cards);
+    this.refreshTagFilterOptions();
+
+    // AnnoCard:应用统一筛选(archived + 颜色 + 标签 + 关键词)
+    const filterState = this.buildFilterState();
+    const filtered = applyCardFilter(cards, filterState);
     const sorted = this.applySort(filtered);
 
-    if (sorted.length === 0) {
+    // AnnoCard:缓存分页数据,渲染首屏(空态由 renderNextPage 处理)
+    this.cachedSortedCards = sorted;
+    this.renderedCount = 0;
+    this.renderNextPage();
+  }
+
+  // 构建当前筛选状态(供 applyCardFilter 用)
+  private buildFilterState(): CardFilterState {
+    const colors = new Set<AnnotationColor>();
+    if (this.colorFilter !== "all") {
+      colors.add(this.colorFilter);
+    }
+    return {
+      colors,
+      keyword: this.searchQuery.trim(),
+      tags: new Set(this.tagFilter),
+      showArchived: this.showArchived,
+    };
+  }
+
+  // 渲染下一页(从 cachedSortedCards 头部累计 renderedCount 处开始)
+  private renderNextPage(): void {
+    if (!this.cardListEl) return;
+
+    // 首屏(空列表时):empty 已在 renderCards 调用前做过
+    if (this.renderedCount === 0) {
+      this.cardListEl.empty();
+    }
+
+    if (this.cachedSortedCards.length === 0) {
       const loc = t();
+      const hasFilter = !!this.searchQuery
+        || this.colorFilter !== "all"
+        || this.tagFilter.size > 0
+        || !this.showArchived;
       this.renderEmpty(
         this.cardListEl,
-        this.searchQuery || this.colorFilter !== "all"
-          ? loc.sidebarNoMatch
-          : loc.sidebarNoAnnotations
+        hasFilter ? loc.sidebarNoMatch : loc.sidebarNoAnnotations
       );
       return;
     }
 
-    for (const cardData of sorted) {
+    const end = Math.min(this.renderedCount + CARD_PAGE_SIZE, this.cachedSortedCards.length);
+    const batch = this.cachedSortedCards.slice(this.renderedCount, end);
+
+    for (const cardData of batch) {
       createAnnotationCard(this.cardListEl, cardData, {
         onClick: (data) => this.showDetailPanel(data),
         onOpen: (data) => { void this.handleCardOpen(data); },
         onDelete: (data) => this.handleCardDelete(data),
+      }, {
+        batchMode: this.batchMode,
+        selected: this.batchSelectedIds.has(cardData.annotation.id),
+        onToggleSelect: (data, selected) => this.handleToggleSelect(data, selected),
+        onEditNote: (data, noteEl) => { void this.handleInlineEditNote(data, noteEl); },
+        onAddTag: (data, tagsEl) => this.handleAddTagInline(data, tagsEl),
+        onRemoveTag: (data, tag) => { void this.handleRemoveTag(data, tag); },
       });
     }
+    this.renderedCount = end;
+
+    // 末尾加载更多按钮(若仍有未渲染的)
+    if (this.renderedCount < this.cachedSortedCards.length) {
+      const moreBtn = this.cardListEl.createDiv({
+        cls: "annocard-load-more",
+        text: t().cardLoadMore,
+      });
+      moreBtn.addEventListener("click", () => {
+        moreBtn.remove();
+        this.renderNextPage();
+      });
+    }
+  }
+
+  // 滚动触发的加载更多(若已到末尾则无操作)
+  private loadMore(): void {
+    if (!this.cardListEl) return;
+    if (this.renderedCount >= this.cachedSortedCards.length) return;
+    // 移除末尾的"加载更多"按钮(避免与新渲染的批次重叠)
+    const oldBtn = this.cardListEl.querySelector(".annocard-load-more");
+    if (oldBtn) oldBtn.remove();
+    this.renderNextPage();
   }
 
   private async loadCurrentFileAnnotations(): Promise<AnnotationCardData[]> {
@@ -418,23 +923,7 @@ export class AnnotationSidebarView extends ItemView {
   }
 
   // ========== 筛选与排序 ==========
-
-  private applyFilters(cards: AnnotationCardData[]): AnnotationCardData[] {
-    let result = cards;
-    if (this.colorFilter !== "all") {
-      result = result.filter((c) => c.annotation.color === this.colorFilter);
-    }
-    if (this.searchQuery) {
-      const query = this.searchQuery.toLowerCase();
-      result = result.filter((c) => {
-        const text = c.annotation.text.toLowerCase();
-        const note = c.annotation.note?.toLowerCase() ?? "";
-        const fileName = c.fileName.toLowerCase();
-        return text.includes(query) || note.includes(query) || fileName.includes(query);
-      });
-    }
-    return result;
-  }
+  // applyFilters 已被 applyCardFilter(archived+color+tag+keyword 统一)替代,见 renderCards
 
   private applySort(cards: AnnotationCardData[]): AnnotationCardData[] {
     const sorted = [...cards];

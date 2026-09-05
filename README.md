@@ -1,10 +1,16 @@
-# Obsidian Annotation Marker / Obsidian 标注插件
+# AnnoCard / 标注卡片融合插件
 
-为 Obsidian 笔记添加文本标注、高亮、批注和注音功能。
-Add text annotations, highlights, notes, and ruby characters to Obsidian notes.
+为 Obsidian 笔记添加文本标注、高亮、批注和注音功能，并以卡片化管理聚合全库标注。
+Add text annotations, highlights, notes, and ruby characters to Obsidian notes, with a card-based sidebar aggregating annotations across the vault.
 
 标注数据存储在独立的标注文件中，不修改原始 Markdown 文件。支持阅读模式和实时预览编辑模式（支持在标注模式中修改笔记）。
 Annotation data is stored in separate annotation files without modifying the original Markdown files. Supports both reading mode and live preview editing mode (including editing notes in annotation mode).
+
+> **融合来源 / Fusion Sources**：AnnoCard 由两个上游 Obsidian 插件融合而成：
+> - 数据层（标注文件存储、diff 同步、跨段/嵌套渲染、阅读模式、选区菜单、注音、旧版导入）源自 [obsidian-annotation-marker](https://github.com/uuq007/obsidian-annotation-marker)（作者：uuq007）。
+> - 卡片化管理层（卡片侧边栏聚合、颜色/关键词/标签筛选、批量删除、复习模式）在 annotation-marker 既有侧边栏基础上扩展，UI/交互设计参考自 [HiLighter](https://github.com/PandoraReads/HiLighter)（作者：PandoraReads）。HiLighter 仓库仅含编译产物，无 TypeScript 源码；按约束未复制压缩代码，所有卡片逻辑均基于 annotation-marker 的 TS 侧边栏重写实现。
+>
+> **Fusion sources**: AnnoCard merges two upstream Obsidian plugins. The data layer (annotation file storage, diff sync, cross-block/nested rendering, reading mode, selection menu, ruby, legacy import) originates from [obsidian-annotation-marker](https://github.com/uuq007/obsidian-annotation-marker) by uuq007. The card management layer (sidebar aggregation, color/keyword/tag filters, batch delete, review mode) extends annotation-marker's existing sidebar; UI/interaction design is inspired by [HiLighter](https://github.com/PandoraReads/HiLighter) by PandoraReads. HiLighter ships only a compiled bundle without TypeScript sources; per constraints, no minified code was copied — all card logic was rewritten on top of annotation-marker's TS sidebar.
 
 ## Features / 功能特性
 
@@ -228,6 +234,80 @@ v3.0.0 and later are complete rewrites. Key changes:
   Export annotations into vault notes
 
 - ……
+
+## AnnoCard 卡片化管理（新增）/ Card Management (New)
+
+AnnoCard 在 annotation-marker 既有功能上新增了卡片化管理能力：
+
+AnnoCard adds card-management capabilities on top of annotation-marker:
+
+### 卡片侧边栏 / Card Sidebar
+
+- **当前文件 / 全库切换** — 默认显示当前文件的标注；可切换为聚合全库所有标注的卡片列表。默认范围可在设置中配置。
+
+  **Current file / All notes** — default shows annotations from the current file; switch to aggregate annotations across the entire vault. Default scope is configurable in settings.
+
+- **颜色 / 关键词 / 标签筛选** — 颜色为 OR（选多个色则显示任一命中），标签为 AND，关键词匹配 text/note/fileName 不区分大小写。
+
+  **Color / keyword / tag filters** — colors OR, tags AND, keyword matches text/note/fileName (case-insensitive).
+
+- **已归档过滤** — 默认隐藏 archived=true 的卡片，可一键切换显示。初值来自设置。
+
+  **Archive filter** — archived cards hidden by default; one-click toggle. Initial value comes from settings.
+
+- **分页加载** — 标注 >100 条时按每页 100 条分页渲染，滚动到底自动加载下一页，避免一次性渲染卡顿。
+
+  **Pagination** — when annotations exceed 100, renders in pages of 100; auto-loads the next page on scroll to prevent jank.
+
+- **点击卡片跳转原文** — 复用 annotation-marker 的 `scrollToAnnotation` 锚点 API 精确定位（不用文本搜索，避免重复内容错位）。
+
+  **Click a card to jump to the source** — reuses annotation-marker's `scrollToAnnotation` anchor API for precise positioning (no text search, preventing misalignment on duplicate content).
+
+### 卡片交互 / Card Interactions
+
+- **内联编辑批注** — 卡片上的"编辑"按钮直接把批注区替换为 textarea，Ctrl/Cmd+Enter 保存、Esc 取消。
+
+  **Inline note editing** — the "Edit" button replaces the note area with a textarea; Ctrl/Cmd+Enter to save, Esc to cancel.
+
+- **标签 chips** — 卡片底部展示已有标签 chips，点击 × 删除单个标签，点击 + 弹出 `TagSuggest` 智能推荐（按频次降序，支持前缀/子串/fuzzy 匹配）。
+
+  **Tag chips** — existing tags shown as chips at the bottom; click × to remove a tag, click + to open `TagSuggest` (frequency-sorted suggestions with prefix/contains/fuzzy matching).
+
+- **批量模式** — 工具栏"批量"开关启用后，每张卡片左侧出现复选框；顶部出现批量操作栏（删除选中 / 给选中打标签 / 取消）。
+
+  **Batch mode** — toggle "Batch" in the toolbar; each card shows a checkbox on the left; a batch action bar appears at the top (delete selected / tag selected / cancel).
+
+### 复习模式 / Review Mode
+
+- **洗牌复习** — 取当前筛选下未归档的标注，Fisher-Yates 洗牌后全屏 overlay 逐张过卡。每次复习数量上限可在设置中配置（默认 50，0=不限）。洗牌顺序不持久化。
+
+  **Shuffled review** — takes non-archived annotations under the current filter, Fisher-Yates shuffles, and walks through them in a full-screen overlay. Per-session size limit is configurable (default 50, 0 = unlimited). Shuffle order is not persisted.
+
+- **复习操作** — 「再来一次」(`reviewCount++`, `lastReviewedAt=now`) / 「已掌握」(`archived=true`) / 上一张/下一张。Esc 退出。键盘快捷键：←/→ 切换，1=再来一次，2=已掌握。
+
+  **Review actions** — "Again" (`reviewCount++`, `lastReviewedAt=now`) / "Mastered" (`archived=true`) / Previous/Next. Esc to exit. Shortcuts: ←/→ to navigate, 1 = Again, 2 = Mastered.
+
+- **持久化** — `reviewCount`、`archived`、`lastReviewedAt` 通过 `AnnotationFileManager.updateAnnotation` 持久化到标注文件，重开插件状态保留。
+
+  **Persistence** — `reviewCount`, `archived`, `lastReviewedAt` are persisted to annotation files via `AnnotationFileManager.updateAnnotation`, surviving reloads.
+
+### 命令 / Commands
+
+- `打开卡片侧边栏` — 打开（聚焦）卡片侧边栏，不切换关闭。
+- `开始复习` — 以当前筛选条件启动复习模式。
+- `切换标注视图` / `导入旧标注插件数据` / `导出当前笔记标注` — 沿用 annotation-marker。
+
+  `Open card sidebar` / `Start review` (new) — and the inherited `Toggle annotation view` / `Import legacy annotation data` / `Export current note annotations` from annotation-marker.
+
+### 设置 / Settings
+
+新增"卡片化管理"分组：
+- 卡片侧边栏默认范围（当前文件 / 全库）
+- 复习每次洗牌数量上限（0=不限）
+- 显示卡片侧边栏 ribbon 图标
+- 卡片侧边栏默认显示已归档
+
+New "Card Management" group in settings: default scope, review batch size limit, show ribbon icon, show archived by default.
 
 ## License / 许可证
 
