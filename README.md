@@ -138,13 +138,13 @@ Annotation data is stored in separate annotation files without modifying the ori
 
 ### Manual Installation / 手动安装
 
-1. 从 [Releases](https://github.com/uuq007/obsidian-annotation-marker/releases) 下载最新版本
+1. 从 [Releases](https://github.com/power-ioi/annocard/releases) 下载最新版本
 
-   Download the latest version from [Releases](https://github.com/uuq007/obsidian-annotation-marker/releases)
+   Download the latest version from [Releases](https://github.com/power-ioi/annocard/releases)
 
-2. 将 `main.js`、`manifest.json`、`styles.css` 复制到 vault 的 `.obsidian/plugins/obsidian-annotation-marker/` 目录
+2. 将 `main.js`、`manifest.json`、`styles.css` 复制到 vault 的 `.obsidian/plugins/annocard/` 目录
 
-   Copy `main.js`, `manifest.json`, `styles.css` to your vault's `.obsidian/plugins/obsidian-annotation-marker/` directory
+   Copy `main.js`, `manifest.json`, `styles.css` to your vault's `.obsidian/plugins/annocard/` directory
 
 3. 在 Obsidian 设置中启用插件
 
@@ -153,8 +153,8 @@ Annotation data is stored in separate annotation files without modifying the ori
 ### Build from Source / 从源码构建
 
 ```bash
-git clone https://github.com/uuq007/obsidian-annotation-marker.git
-cd obsidian-annotation-marker
+git clone https://github.com/power-ioi/annocard.git
+cd annocard
 npm install
 npm run build
 ```
