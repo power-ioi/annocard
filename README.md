@@ -309,6 +309,15 @@ AnnoCard adds card-management capabilities on top of annotation-marker:
 
 New "Card Management" group in settings: default scope, review batch size limit, show ribbon icon, show archived by default.
 
+
+## Contributors / 贡献者
+
+- **[uuq007](https://github.com/uuq007)**  数据层原始实现（[obsidian-annotation-marker](https://github.com/uuq007/obsidian-annotation-marker)）：标注文件存储、diff 同步、跨段/嵌套渲染、阅读模式、选区菜单、注音、旧版导入等核心能力
+- **[PandoraReads](https://github.com/PandoraReads)**  卡片管理 UI/交互设计参考（[HiLighter](https://github.com/PandoraReads/HiLighter)）：卡片侧边栏聚合、颜色/关键词/标签筛选、批量操作、复习模式等产品灵感
+- **[power-ioi](https://github.com/power-ioi)**  AnnoCard 融合实现与维护：在 annotation-marker 既有侧边栏基础上扩展卡片管理层，重写卡片逻辑以适配独立标注数据结构
+
+> AnnoCard merges two upstream Obsidian plugins under the MIT license. The data layer originates from obsidian-annotation-marker (by uuq007); the card management UI/interaction design is inspired by HiLighter (by PandoraReads). Fusion implementation and ongoing maintenance by power-ioi. All original copyright notices are retained.
+
 ## License / 许可证
 
 MIT
