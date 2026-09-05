@@ -1,0 +1,478 @@
+import { App, MarkdownView, Notice } from "obsidian";
+import type { ParsedAnnotation } from "../types";
+import { COLOR_CLASSES } from "../constants";
+import { AnnotationFileManager } from "../annotationFile/AnnotationFileManager";
+import { editAnnotationInEditor } from "../utils/annotationEditorHelper";
+import { scrollToAnnotation } from "../utils/scrollToAnnotation";
+import { t } from "../i18n";
+
+// 标注列表浮动面板（右侧按钮打开）
+export class AnnotationListPanel {
+  private app: App;
+  private fileManager: AnnotationFileManager;
+  private containerEl: HTMLElement | null = null;
+  private panelEl: HTMLElement | null = null;
+  private listBtn: HTMLElement | null = null;
+  private currentNotePath: string | null = null;
+  private onUpdate: (() => void) | null = null;
+  private sortOption: "position-asc" | "position-desc" | "time-asc" | "time-desc" | "color-asc" | "color-desc" = "position-asc";
+  private panelClickHandler: ((e: MouseEvent) => void) | null = null;
+  // 右键删除确认小菜单：面板关闭时一并回收，避免残留
+  private contextMenuEl: HTMLElement | null = null;
+
+  // 拖动相关
+  private isMouseDown = false;
+  private isDragging = false;
+  private wasDragged = false;
+  private dragStartX = 0;
+  private dragStartY = 0;
+  private dragStartLeft = 0;
+  private dragStartTop = 0;
+  private dragContainerWidth = 0;
+  private dragContainerHeight = 0;
+  private dragBtnWidth = 0;
+  private dragBtnHeight = 0;
+  private dragMoveHandler: ((e: PointerEvent) => void) | null = null;
+  private dragEndHandler: ((e: PointerEvent) => void) | null = null;
+
+  constructor(app: App, fileManager: AnnotationFileManager) {
+    this.app = app;
+    this.fileManager = fileManager;
+  }
+
+  show(params: {
+    notePath: string;
+    onUpdate: () => void;
+    containerEl: HTMLElement;
+  }): void {
+    this.currentNotePath = params.notePath;
+    this.onUpdate = params.onUpdate;
+    this.containerEl = params.containerEl;
+    this.hide();
+
+    this.createListButton();
+  }
+
+  // 创建列表按钮（挂载到传入的容器元素，跟随面板定位）
+  private createListButton(): void {
+    if (!this.containerEl) return;
+
+    this.listBtn = createDiv();
+    this.listBtn.className = "annotation-list-btn";
+    this.listBtn.createSpan({ text: "📝" });
+    this.listBtn.title = t().panelViewAnnotation;
+
+    this.containerEl.appendChild(this.listBtn);
+
+    // 点击切换面板（拖动后不触发）
+    this.listBtn.addEventListener("click", (e) => {
+      if (this.wasDragged) {
+        this.wasDragged = false;
+        return;
+      }
+      e.stopPropagation();
+      if (this.panelEl && this.panelEl.style.display !== "none") {
+        this.hidePanel();
+      } else {
+        void this.showPanel();
+      }
+    });
+
+    // 拖动开始（Pointer Events 统一鼠标与触摸；.annotation-list-btn 的 touch-action:none
+    // 允许在按钮上起拖手势而不触发页面滚动）
+    this.listBtn.addEventListener("pointerdown", (e: PointerEvent) => {
+      if (e.button !== 0) return;
+      this.isMouseDown = true;
+      this.isDragging = false;
+      this.wasDragged = false;
+
+      // 按下时缓存所有尺寸，避免拖动中触发回流
+      const btnRect = this.listBtn!.getBoundingClientRect();
+      const containerRect = this.containerEl!.getBoundingClientRect();
+      this.dragStartX = e.clientX;
+      this.dragStartY = e.clientY;
+      this.dragStartLeft = btnRect.left - containerRect.left;
+      this.dragStartTop = btnRect.top - containerRect.top;
+      this.dragContainerWidth = containerRect.width;
+      this.dragContainerHeight = containerRect.height;
+      this.dragBtnWidth = btnRect.width;
+      this.dragBtnHeight = btnRect.height;
+
+      // 捕获指针：手指滑出按钮乃至容器外，move/up 仍定向派发到按钮，
+      // 拖动监听因此可以全部收敛到元素自身（不再挂 document）
+      try {
+        this.listBtn!.setPointerCapture(e.pointerId);
+      } catch {
+        // 指针已失效等极端情况忽略；捕获失败时后续 move 收不到，只是无法拖动
+      }
+    });
+
+    // 拖动移动和结束（捕获状态下监听挂在按钮自身即可）
+    this.dragMoveHandler = (e: PointerEvent) => {
+      if (!this.isMouseDown || !this.listBtn) return;
+      const dx = e.clientX - this.dragStartX;
+      const dy = e.clientY - this.dragStartY;
+      if (!this.isDragging && Math.abs(dx) + Math.abs(dy) > 3) {
+        this.isDragging = true;
+        this.listBtn.classList.add("dragging");
+      }
+      if (!this.isDragging) return;
+
+      // 纯计算，不触发 DOM 读取
+      let newLeft = this.dragStartLeft + dx;
+      let newTop = this.dragStartTop + dy;
+      newLeft = Math.max(0, Math.min(this.dragContainerWidth - this.dragBtnWidth, newLeft));
+      newTop = Math.max(0, Math.min(this.dragContainerHeight - this.dragBtnHeight, newTop));
+
+      this.listBtn.setCssStyles({
+        left: `${newLeft}px`,
+        top: `${newTop}px`,
+        right: "auto",
+        transform: "none",
+      });
+    };
+
+    this.dragEndHandler = () => {
+      if (this.isDragging) {
+        this.wasDragged = true;
+        this.isDragging = false;
+      }
+      this.isMouseDown = false;
+      if (this.listBtn) {
+        this.listBtn.classList.remove("dragging");
+      }
+    };
+
+    // pointercancel：来电/系统手势劫持等中断也要复位拖动状态，避免悬浮球卡在拖动态
+    this.listBtn.addEventListener("pointermove", this.dragMoveHandler);
+    this.listBtn.addEventListener("pointerup", this.dragEndHandler);
+    this.listBtn.addEventListener("pointercancel", this.dragEndHandler);
+  }
+
+  private async showPanel(): Promise<void> {
+    if (!this.currentNotePath) return;
+    this.hidePanel();
+    const loc = t();
+
+    this.panelEl = createDiv();
+    // 用局部引用贯穿整个异步流程：await 期间二次点击会走 hidePanel() 把 panelEl 置 null，
+    // 恢复执行后若直接用 this.panelEl 会空引用崩溃（调用处 void 吞掉异常表现为面板打不开）
+    const panel = this.panelEl;
+    panel.className = "annotation-list-panel";
+
+    // 标题栏
+    const header = panel.createDiv({ cls: "annotation-list-header" });
+    header.createSpan({ text: loc.panelTitle, cls: "annotation-list-title" });
+
+    // 排序选择
+    const sortContainer = header.createDiv({ cls: "annotation-list-sort-container" });
+    const sortSelect = sortContainer.createEl("select", { cls: "annotation-list-sort-select" });
+    const opts = [
+      { v: "position-asc", t: loc.panelSortContentAsc },
+      { v: "position-desc", t: loc.panelSortContentDesc },
+      { v: "time-asc", t: loc.panelSortTimeAsc },
+      { v: "time-desc", t: loc.panelSortTimeDesc },
+      { v: "color-asc", t: loc.panelSortColorAsc },
+      { v: "color-desc", t: loc.panelSortColorDesc },
+    ];
+    sortSelect.empty();
+    for (const o of opts) {
+      const opt = sortSelect.createEl("option", { value: o.v, text: o.t });
+      if (this.sortOption === o.v) opt.selected = true;
+    }
+    sortSelect.addEventListener("change", () => {
+      this.sortOption = sortSelect.value as typeof this.sortOption;
+      void this.refreshContent();
+    });
+
+    const closeBtn = header.createEl("button", { cls: "annotation-list-close", text: loc.close });
+    closeBtn.addEventListener("click", () => this.hidePanel());
+
+    const content = panel.createDiv({ cls: "annotation-list-content" });
+    // 先渲染内容，再定位，避免空面板闪烁后跳位
+    await this.renderContent(content);
+
+    // await 期间面板已被关闭（二次点击 hidePanel）→ 放弃本次渲染
+    if (this.panelEl !== panel || !this.containerEl) return;
+    const container = this.containerEl;
+
+    // 先放到屏幕外测量尺寸，避免用户看到错误位置
+    panel.setCssStyles({
+      position: "absolute",
+      left: "-9999px",
+      top: "-9999px",
+      zIndex: "100",
+    });
+    container.appendChild(panel);
+
+    // 读取面板实际高度
+    const panelHeight = panel.offsetHeight || 300;
+
+    if (this.listBtn) {
+      const btnRect = this.listBtn.getBoundingClientRect();
+      const containerRect = container.getBoundingClientRect();
+      const panelWidth = 300;
+
+      // 按钮在容器内的偏移
+      const btnLeftInContainer = btnRect.left - containerRect.left;
+      const btnTopInContainer = btnRect.top - containerRect.top;
+
+      // 容器在视口中的可见边界
+      const containerVisibleLeft = Math.max(containerRect.left, 0);
+      const containerVisibleRight = Math.min(containerRect.right, window.innerWidth);
+
+      // 面板在按钮右侧/左侧的可用空间（基于容器可见区域）
+      const spaceRight = containerVisibleRight - btnRect.right;
+      const spaceLeft = btnRect.left - containerVisibleLeft;
+
+      let panelLeft: number;
+      if (spaceRight >= panelWidth + 10) {
+        panelLeft = btnLeftInContainer + btnRect.width + 10;
+      } else if (spaceLeft >= panelWidth + 10) {
+        panelLeft = btnLeftInContainer - panelWidth - 10;
+      } else if (spaceRight >= spaceLeft) {
+        panelLeft = btnLeftInContainer + btnRect.width + 5;
+      } else {
+        panelLeft = Math.max(0, btnLeftInContainer - panelWidth - 5);
+      }
+
+      // 垂直方向：使用容器可见边界
+      const containerVisibleTop = Math.max(containerRect.top, 0);
+      const containerVisibleBottom = Math.min(containerRect.bottom, window.innerHeight);
+      let panelTop = btnTopInContainer;
+      if (btnRect.top + panelHeight > containerVisibleBottom - 10) {
+        panelTop = btnTopInContainer + btnRect.height - panelHeight;
+        if (btnRect.bottom - panelHeight < containerVisibleTop + 10) {
+          panelTop = containerVisibleTop - containerRect.top + 10;
+        }
+      }
+      panel.setCssStyles({
+        left: `${panelLeft}px`,
+        top: `${panelTop}px`,
+        transform: "",
+      });
+    } else {
+      panel.setCssStyles({
+        right: "60px",
+        top: "50%",
+        transform: "translateY(-50%)",
+      });
+    }
+
+    this.panelClickHandler = (e: MouseEvent) => {
+      if (this.panelEl && !this.panelEl.contains(e.target as Node) &&
+        (!this.listBtn || !this.listBtn.contains(e.target as Node))) {
+        this.hidePanel();
+      }
+    };
+    window.setTimeout(() => {
+      if (this.panelClickHandler) {
+        activeDocument.addEventListener("click", this.panelClickHandler);
+      }
+    }, 10);
+  }
+
+  private async renderContent(content: HTMLElement): Promise<void> {
+    content.empty();
+    const loc = t();
+
+    if (!this.currentNotePath) {
+      content.createDiv({ cls: "annotation-list-empty", text: loc.noData });
+      return;
+    }
+
+    let annotations: ParsedAnnotation[];
+    try {
+      annotations = await this.fileManager.getAnnotations(this.currentNotePath);
+    } catch {
+      content.createDiv({ cls: "annotation-list-empty", text: loc.noData });
+      return;
+    }
+
+    if (annotations.length === 0) {
+      content.createDiv({ cls: "annotation-list-empty", text: loc.noData });
+      return;
+    }
+
+    // 排序
+    const sorted = [...annotations];
+    switch (this.sortOption) {
+      case "position-asc":
+        sorted.sort((a, b) => a.positions[0]!.start - b.positions[0]!.start);
+        break;
+      case "position-desc":
+        sorted.sort((a, b) => b.positions[0]!.start - a.positions[0]!.start);
+        break;
+      case "time-asc":
+        sorted.sort((a, b) => parseInt(a.id) - parseInt(b.id));
+        break;
+      case "time-desc":
+        sorted.sort((a, b) => parseInt(b.id) - parseInt(a.id));
+        break;
+      case "color-asc":
+        sorted.sort((a, b) => a.color.localeCompare(b.color));
+        break;
+      case "color-desc":
+        sorted.sort((a, b) => b.color.localeCompare(a.color));
+        break;
+    }
+
+    for (const annotation of sorted) {
+      const item = content.createDiv({ cls: "annotation-list-item" });
+
+      item.createSpan({ cls: `annotation-list-dot ${COLOR_CLASSES[annotation.color]}` });
+
+      // 全文标注标记
+      if (annotation.isFullText && annotation.positions.length > 1) {
+        const badge = item.createSpan({ cls: "annotation-list-badge" });
+        badge.textContent = loc.fullTextBadge(annotation.positions.length);
+      } else if (annotation.isCrossBlock) {
+        // 跨段标注标记
+        const badge = item.createSpan({ cls: "annotation-list-badge" });
+        badge.textContent = loc.crossBlockBadge(annotation.positions.length);
+      }
+
+      const textPreview = item.createDiv({ cls: "annotation-list-text" });
+      const previewText = annotation.text.length > 60
+        ? annotation.text.substring(0, 60) + "..."
+        : annotation.text;
+      textPreview.textContent = previewText;
+
+      if (annotation.note) {
+        const notePreview = item.createDiv({ cls: "annotation-list-note" });
+        const noteText = annotation.note.length > 100
+          ? annotation.note.substring(0, 100) + "..."
+          : annotation.note;
+        notePreview.textContent = `📝 ${noteText}`;
+      }
+
+      item.addEventListener("click", () => {
+        void this.jumpToAnnotation(annotation);
+      });
+
+      item.addEventListener("contextmenu", (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        this.showContextMenu(annotation, e.clientX, e.clientY);
+      });
+    }
+  }
+
+  private async refreshContent(): Promise<void> {
+    if (!this.panelEl) return;
+    const content = this.panelEl.querySelector(".annotation-list-content") as HTMLElement;
+    if (content) {
+      await this.renderContent(content);
+    }
+  }
+
+  private showContextMenu(annotation: ParsedAnnotation, x: number, y: number): void {
+    activeDocument.querySelectorAll(".annotation-context-menu").forEach((el) => el.remove());
+    const loc = t();
+
+    const menu = createDiv();
+    menu.className = "annotation-context-menu";
+
+    const deleteBtn = menu.createEl("button", {
+      text: loc.panelDeleteAnnotation,
+      cls: "annotation-context-menu-item annotation-context-menu-danger",
+    });
+    deleteBtn.addEventListener("click", () => {
+      void (async () => {
+        if (!this.currentNotePath) return;
+        // 编辑模式：用 replaceRange 局部替换
+        const view = this.app.workspace.getActiveViewOfType(MarkdownView);
+        const deleted = view ? await editAnnotationInEditor(view, this.fileManager, this.currentNotePath, annotation.id, 'delete') : false;
+        if (!deleted) {
+          await this.fileManager.removeAnnotation(this.currentNotePath, annotation.id);
+        }
+        menu.remove();
+        if (this.contextMenuEl === menu) this.contextMenuEl = null;
+        new Notice(loc.noticeDeleted);
+        this.hidePanel();
+        this.onUpdate?.();
+      })();
+    });
+
+    // 新菜单打开前回收旧菜单（连续右键不同条目时避免叠加）
+    this.contextMenuEl?.remove();
+    this.contextMenuEl = menu;
+    activeDocument.body.appendChild(menu);
+
+    const menuWidth = 120;
+    const menuHeight = menu.offsetHeight || 80;
+    let menuX = x + 10;
+    let menuY = y + 10;
+
+    if (menuX + menuWidth > window.innerWidth) menuX = x - menuWidth - 10;
+    if (menuY + menuHeight > window.innerHeight) menuY = window.innerHeight - menuHeight - 10;
+
+    menu.setCssStyles({
+      left: `${Math.max(10, menuX)}px`,
+      top: `${Math.max(10, menuY)}px`,
+    });
+
+    const handler = (e: MouseEvent) => {
+      if (!menu.contains(e.target as Node)) {
+        menu.remove();
+        if (this.contextMenuEl === menu) this.contextMenuEl = null;
+        activeDocument.removeEventListener("click", handler);
+      }
+    };
+    window.setTimeout(() => activeDocument.addEventListener("click", handler), 10);
+  }
+
+  // 跳转到指定标注位置并高亮
+  private async jumpToAnnotation(annotation: ParsedAnnotation): Promise<void> {
+    this.hidePanel();
+
+    const view = this.app.workspace.getActiveViewOfType(MarkdownView);
+    if (!view) return;
+
+    await scrollToAnnotation(
+      this.app,
+      this.fileManager,
+      view,
+      this.currentNotePath!,
+      annotation
+    );
+  }
+
+  private hidePanel(): void {
+    if (this.panelClickHandler) {
+      activeDocument.removeEventListener("click", this.panelClickHandler);
+      this.panelClickHandler = null;
+    }
+    if (this.contextMenuEl) {
+      this.contextMenuEl.remove();
+      this.contextMenuEl = null;
+    }
+    if (this.panelEl) {
+      this.panelEl.remove();
+      this.panelEl = null;
+    }
+  }
+
+  hide(): void {
+    this.hidePanel();
+    // 拖动监听已收敛到按钮自身，随节点移除一并销毁，无需 document 级解绑
+    if (this.listBtn) {
+      this.listBtn.remove();
+      this.listBtn = null;
+    }
+  }
+
+  getNotePath(): string | null {
+    return this.currentNotePath;
+  }
+
+  updateNotePath(newPath: string): void {
+    this.currentNotePath = newPath;
+  }
+
+  async refresh(): Promise<void> {
+    if (this.panelEl) {
+      await this.refreshContent();
+    }
+  }
+}

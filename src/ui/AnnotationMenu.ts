@@ -1,0 +1,249 @@
+import { App, MarkdownView, Notice } from "obsidian";
+import type { AnnotationColor, AnnotationPluginSettings, ParsedAnnotation } from "../types";
+import { COLOR_CLASSES, getActiveColors } from "../constants";
+import { AnnotationFileManager } from "../annotationFile/AnnotationFileManager";
+import { EditNoteModal } from "./EditNoteModal";
+import { ConfirmOverwriteModal } from "./ExportModal";
+import { editAnnotationInEditor } from "../utils/annotationEditorHelper";
+import { restoreEditorFocus } from "../utils/focusManager";
+import { t } from "../i18n";
+
+// 标注详情的浮动菜单（点击已有标注时弹出）
+export class AnnotationMenu {
+  private fileManager: AnnotationFileManager;
+  private getSettings: () => AnnotationPluginSettings;
+  private menuEl: HTMLElement | null = null;
+  // 外点关闭监听：存字段以便 hide() 在所有关闭路径上统一回收
+  // （此前只在"外点"分支自注销，经 × / hide() 关闭后残留，会导致下次详情菜单弹出即被关）
+  private outsideClickHandler: ((e: MouseEvent) => void) | null = null;
+
+  constructor(private app: App, fileManager: AnnotationFileManager, getSettings: () => AnnotationPluginSettings) {
+    this.fileManager = fileManager;
+    this.getSettings = getSettings;
+  }
+
+  show(params: {
+    x: number;
+    y: number;
+    annotation: ParsedAnnotation;
+    notePath: string;
+    onUpdate: () => void;
+  }): void {
+    this.hide();
+
+    const { annotation, notePath, onUpdate } = params;
+    const settings = this.getSettings();
+    const settingsMap = settings as unknown as Record<string, unknown>;
+    const loc = t();
+
+    this.menuEl = createDiv();
+    this.menuEl.className = "annotation-card-menu annotation-view-menu";
+
+    const header = this.menuEl.createDiv({ cls: "annotation-menu-header" });
+    header.createSpan({ text: loc.menuAnnotationDetail, cls: "annotation-menu-title" });
+    const closeBtn = header.createEl("button", { cls: "annotation-menu-close", text: loc.close });
+    closeBtn.addEventListener("click", () => this.hide());
+
+    const textPreview = this.menuEl.createDiv({ cls: "annotation-menu-text" });
+    const previewText = annotation.text.length > 80
+      ? annotation.text.substring(0, 80) + "..."
+      : annotation.text;
+    textPreview.createSpan({ text: `"${previewText}"` });
+
+    if (annotation.isFullText && annotation.positions.length > 1) {
+      const fullTextHint = this.menuEl.createDiv({ cls: "annotation-fulltext-hint" });
+      fullTextHint.createSpan({ text: loc.fullTextAnnotation(annotation.positions.length) });
+    } else if (annotation.isCrossBlock) {
+      const crossBlockHint = this.menuEl.createDiv({ cls: "annotation-fulltext-hint" });
+      crossBlockHint.createSpan({ text: loc.crossBlockAnnotation(annotation.positions.length) });
+    }
+
+    if (annotation.note) {
+      const noteSection = this.menuEl.createDiv({ cls: "annotation-menu-note" });
+      noteSection.createEl("label", { text: loc.noteContent });
+      noteSection.createDiv({ cls: "annotation-note-text", text: annotation.note });
+    }
+
+    // 颜色选择
+    const colorSection = this.menuEl.createDiv({ cls: "annotation-menu-section" });
+    colorSection.createEl("label", { text: loc.sidebarAnnotationColor });
+    const colorContainer = colorSection.createDiv({ cls: "annotation-color-buttons" });
+
+    const colors: AnnotationColor[] = getActiveColors(settings);
+    for (const c of colors) {
+      const btn = colorContainer.createEl("button", {
+        cls: `annotation-color-dot ${COLOR_CLASSES[c]}`,
+      });
+      if (c === annotation.color) btn.addClass("active");
+      const colorLabel = typeof settingsMap[`colorLabel${c}`] === "string"
+        ? (settingsMap[`colorLabel${c}`] as string)
+        : loc.colorLabel(c);
+      btn.title = c === "none" ? loc.none : colorLabel;
+      btn.addEventListener("click", (e) => {
+        void (async () => {
+          e.stopPropagation();
+          if (c !== annotation.color) {
+            // 编辑模式：用 replaceRange 局部替换
+            const view = this.app.workspace.getActiveViewOfType(MarkdownView);
+            const edited = view ? await editAnnotationInEditor(view, this.fileManager, notePath, annotation.id, {
+              color: c,
+              note: annotation.note,
+              rubyTexts: annotation.rubyTexts,
+              isFullText: annotation.isFullText,
+              isCrossBlock: annotation.isCrossBlock,
+            }) : false;
+            if (!edited) {
+              await this.fileManager.updateAnnotation(notePath, annotation.id, { color: c });
+            }
+            this.hide();
+            onUpdate();
+            new Notice(loc.noticeColorChanged);
+          }
+        })();
+      });
+    }
+
+    const actions = this.menuEl.createDiv({ cls: "annotation-menu-actions" });
+
+    const editBtn = actions.createEl("button", {
+      cls: "annotation-btn annotation-btn-secondary",
+      text: loc.menuEditNote,
+    });
+    editBtn.addEventListener("click", (e) => {
+      e.stopPropagation();
+      this.showEditModal(annotation, notePath, onUpdate);
+    });
+
+    const copyBtn = actions.createEl("button", {
+      cls: "annotation-btn annotation-btn-secondary",
+      text: loc.menuCopyOriginal,
+    });
+    copyBtn.addEventListener("click", (e) => {
+      e.stopPropagation();
+      void navigator.clipboard.writeText(annotation.text);
+      new Notice(loc.noticeOriginalCopied);
+    });
+
+    const deleteBtn = actions.createEl("button", {
+      cls: "annotation-btn annotation-btn-danger",
+      text: loc.delete,
+    });
+    deleteBtn.addEventListener("click", (e) => {
+      e.stopPropagation();
+      const msg = (annotation.isFullText || annotation.positions.length > 1) && annotation.positions.length > 1
+        ? loc.confirmDeleteMulti(annotation.positions.length)
+        : loc.confirmDelete;
+      this.hide();
+      new ConfirmOverwriteModal(
+        this.app,
+        msg,
+        async () => {
+          const view = this.app.workspace.getActiveViewOfType(MarkdownView);
+          const deleted = view ? await editAnnotationInEditor(view, this.fileManager, notePath, annotation.id, 'delete') : false;
+          if (!deleted) {
+            await this.fileManager.removeAnnotation(notePath, annotation.id);
+          }
+          this.hide();
+          onUpdate();
+          new Notice(loc.noticeDeleted);
+        },
+        loc.delete
+      ).open();
+    });
+
+    activeDocument.body.appendChild(this.menuEl);
+
+    // 用真实渲染宽度参与翻转判定（CSS max-width 随视口收缩，写死常量在小屏上会失准）
+    const menuWidth = this.menuEl.offsetWidth || 300;
+    const menuHeight = this.menuEl.offsetHeight || 250;
+    let menuX = params.x + 10;
+    let menuY = params.y + 10;
+
+    if (menuX + menuWidth > window.innerWidth) {
+      menuX = params.x - menuWidth - 10;
+    }
+    const threshold = window.innerHeight * 0.4;
+    if (params.y > threshold) {
+      menuY = params.y - menuHeight - 10;
+    }
+    if (menuY + menuHeight > window.innerHeight) {
+      menuY = window.innerHeight - menuHeight - 10;
+    }
+
+    this.menuEl.setCssStyles({
+      left: `${Math.max(10, menuX)}px`,
+      top: `${Math.max(10, menuY)}px`,
+    });
+
+    // 先回收旧监听再注册新的，防止 show 复用时叠加
+    this.detachOutsideClickHandler();
+    this.outsideClickHandler = (e: MouseEvent) => {
+      if (this.menuEl && !this.menuEl.contains(e.target as Node)) {
+        this.hide();
+      }
+    };
+    window.setTimeout(() => {
+      if (this.outsideClickHandler) {
+        activeDocument.addEventListener("click", this.outsideClickHandler);
+      }
+    }, 10);
+  }
+
+  private detachOutsideClickHandler(): void {
+    if (this.outsideClickHandler) {
+      activeDocument.removeEventListener("click", this.outsideClickHandler);
+      this.outsideClickHandler = null;
+    }
+  }
+
+  private showEditModal(
+    annotation: ParsedAnnotation,
+    notePath: string,
+    onUpdate: () => void
+  ): void {
+    this.hide();
+    const loc = t();
+    const modal = new EditNoteModal(
+      this.app,
+      this.getSettings,
+      {
+        text: annotation.text,
+        note: annotation.note,
+        color: annotation.color,
+        rubyTexts: annotation.rubyTexts,
+      },
+      async (note, color, rubyTexts) => {
+        // 编辑模式：用 replaceRange 局部替换
+        const view = this.app.workspace.getActiveViewOfType(MarkdownView);
+        const edited = view ? await editAnnotationInEditor(view, this.fileManager, notePath, annotation.id, {
+          color,
+          note,
+          rubyTexts,
+          isFullText: annotation.isFullText,
+          isCrossBlock: annotation.isCrossBlock,
+        }) : false;
+        if (!edited) {
+          await this.fileManager.updateAnnotation(notePath, annotation.id, {
+            color,
+            note,
+            rubyTexts,
+          });
+        }
+        onUpdate();
+        new Notice(loc.noticeNoteUpdated);
+      }
+    );
+    modal.open();
+  }
+
+  hide(): void {
+    this.detachOutsideClickHandler();
+    if (this.menuEl) {
+      this.menuEl.remove();
+      this.menuEl = null;
+    }
+    // 菜单关闭后恢复编辑器焦点
+    const view = this.app.workspace.getActiveViewOfType(MarkdownView);
+    if (view) restoreEditorFocus(view);
+  }
+}

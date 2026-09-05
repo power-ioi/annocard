@@ -1,0 +1,910 @@
+import { ItemView, MarkdownView, Notice, normalizePath, TFile, WorkspaceLeaf } from "obsidian";
+import type { AnnotationColor, AnnotationRuby, ParsedAnnotation } from "../types";
+import { COLOR_CLASSES, getActiveColors } from "../constants";
+import { annotationPathToNotePath, getViewFilePath } from "../utils/helpers";
+import { AnnotationFileManager } from "../annotationFile/AnnotationFileManager";
+import { editAnnotationInEditor } from "../utils/annotationEditorHelper";
+import { scrollToAnnotation } from "../utils/scrollToAnnotation";
+import { createAnnotationCard, type AnnotationCardData } from "./AnnotationCard";
+import type AnnotationPlugin from "../main";
+import { t } from "../i18n";
+import { FolderSuggestModal, FileNameModal, ConfirmOverwriteModal } from "../ui/ExportModal";
+import { sortAnnotations, buildExportContent } from "../utils/exporter";
+
+export const ANNOTATION_SIDEBAR_VIEW_TYPE = "annotation-sidebar-view";
+
+type SidebarMode = "current" | "all";
+type SortOption = "position-asc" | "position-desc" | "time-asc" | "time-desc" | "color-asc" | "color-desc" | "by-note";
+
+export class AnnotationSidebarView extends ItemView {
+  private plugin: AnnotationPlugin;
+  private fileManager: AnnotationFileManager;
+
+  // 状态
+  private mode: SidebarMode = "current";
+  private searchQuery = "";
+  private colorFilter: AnnotationColor | "all" = "all";
+  private sortOption: SortOption = "position-asc";
+
+  // DOM 引用
+  private cardListEl: HTMLElement | null = null;
+  private searchInput: HTMLInputElement | null = null;
+  private sortSelect: HTMLSelectElement | null = null;
+  private exportBtn: HTMLElement | null = null;
+  private tabs: Record<SidebarMode, HTMLElement> = { current: null!, all: null! };
+  private colorBtns: Map<string, HTMLElement> = new Map();
+
+  // 详情面板状态
+  private detailCardData: AnnotationCardData | null = null;
+  private detailIsEditing = false;
+  // 编辑态暂存
+  private editColor: AnnotationColor = "1";
+  private editNote = "";
+  private editRubyTexts: AnnotationRuby[] = [];
+
+  // 全部笔记模式缓存
+  private allAnnotationsCache: AnnotationCardData[] | null = null;
+
+  // 防抖定时器
+  private searchDebounceTimer: number | null = null;
+  private leafChangeTimer: number | null = null;
+  private lastRefreshedNotePath: string | null = null;
+
+  // 刷新回调引用（onOpen/onClose 共用同一引用，确保 indexOf 能命中）
+  private boundAnnotationChange: (() => void) | null = null;
+
+  // 渲染代际 token：递增，await 之后若已被新代次取代则丢弃，避免过期数据污染 DOM
+  private renderGeneration = 0;
+
+  constructor(leaf: WorkspaceLeaf, plugin: AnnotationPlugin) {
+    super(leaf);
+    this.plugin = plugin;
+    this.fileManager = plugin.fileManager;
+  }
+
+  getViewType(): string {
+    return ANNOTATION_SIDEBAR_VIEW_TYPE;
+  }
+
+  getDisplayText(): string {
+    return t().sidebarTitle;
+  }
+
+  getIcon(): string {
+    return "lucide-bookmark";
+  }
+
+  async onOpen(): Promise<void> {
+    const container = this.containerEl.children[1] as HTMLElement;
+    container.empty();
+    container.addClass("annotation-sidebar");
+
+    this.renderToolbar(container);
+    this.renderTabs(container);
+    this.renderSearchBar(container);
+
+    this.cardListEl = container.createDiv({ cls: "annotation-sidebar-card-list" });
+
+    // 注册事件
+    this.registerEvent(
+      this.app.workspace.on("active-leaf-change", () => {
+        if (this.mode === "current" && !this.detailCardData) {
+          const activeFile = this.app.workspace.getActiveFile();
+          const currentPath = activeFile?.path ?? null;
+          if (currentPath === this.lastRefreshedNotePath) return;
+
+          if (this.leafChangeTimer) window.clearTimeout(this.leafChangeTimer);
+          this.leafChangeTimer = window.setTimeout(() => {
+            void this.refresh();
+          }, 200);
+        }
+      })
+    );
+
+    // 注册刷新回调（保存引用，onClose 时用同一引用精确注销）
+    this.boundAnnotationChange = () => {
+      if (this.detailCardData) {
+        // 详情面板打开中：closeDetailPanel 内部已重新渲染卡片列表，
+        // 再走 refresh 会双跑一轮全量加载，直接返回
+        this.closeDetailPanel();
+        return;
+      }
+      void this.refresh();
+    };
+    this.plugin.annotationChangeCallbacks.push(this.boundAnnotationChange);
+
+    // 初始加载
+    await this.refresh();
+  }
+
+  async onClose(): Promise<void> {
+    // 使用同一引用精确注销
+    if (this.boundAnnotationChange) {
+      const idx = this.plugin.annotationChangeCallbacks.indexOf(this.boundAnnotationChange);
+      if (idx >= 0) {
+        this.plugin.annotationChangeCallbacks.splice(idx, 1);
+      }
+      this.boundAnnotationChange = null;
+    }
+    // 清掉挂起的防抖定时器：关视图后仍触发会对已脱离 DOM 的列表做全量加载
+    if (this.searchDebounceTimer) {
+      window.clearTimeout(this.searchDebounceTimer);
+      this.searchDebounceTimer = null;
+    }
+    if (this.leafChangeTimer) {
+      window.clearTimeout(this.leafChangeTimer);
+      this.leafChangeTimer = null;
+    }
+    this.allAnnotationsCache = null;
+    this.detailCardData = null;
+  }
+
+  // ========== 渲染方法 ==========
+
+  private renderToolbar(container: HTMLElement): void {
+    const toolbar = container.createDiv({ cls: "annotation-sidebar-toolbar" });
+    toolbar.createSpan({ cls: "annotation-sidebar-title", text: t().sidebarTitle });
+
+    // 导出按钮（仅在当前笔记模式下显示）
+    this.exportBtn = toolbar.createEl("button", {
+      cls: "annotation-sidebar-export-btn",
+      text: t().sidebarExportBtn,
+    });
+    this.exportBtn.addEventListener("click", () => { void this.exportCurrentAnnotations(); });
+    this.exportBtn.toggleClass("is-hidden", this.mode !== "current");
+
+    this.sortSelect = toolbar.createEl("select", { cls: "annotation-sidebar-sort-select" });
+    this.sortSelect.addEventListener("change", () => {
+      this.sortOption = this.sortSelect!.value as SortOption;
+      void this.renderCards();
+    });
+    this.updateSortOptions();
+  }
+
+  private updateSortOptions(): void {
+    if (!this.sortSelect) return;
+    const currentValue = this.sortOption;
+    this.sortSelect.empty();
+    const loc = t();
+
+    if (this.mode === "current") {
+      const opts = [
+        { v: "position-asc", t: loc.sidebarSortContent },
+        { v: "position-desc", t: loc.sidebarSortContentDesc },
+        { v: "time-asc", t: loc.sidebarSortTimeAsc },
+        { v: "time-desc", t: loc.sidebarSortTimeDesc },
+        { v: "color-asc", t: loc.sidebarSortColor },
+        { v: "color-desc", t: loc.sidebarSortColorDesc },
+      ];
+      for (const o of opts) {
+        this.sortSelect.createEl("option", { value: o.v, text: o.t });
+      }
+      // 如果当前选项不适用于当前笔记模式，回退
+      if (!["position-asc", "position-desc", "time-asc", "time-desc", "color-asc", "color-desc"].includes(currentValue)) {
+        this.sortOption = "position-asc";
+      }
+    } else {
+      const opts = [
+        { v: "by-note", t: loc.sidebarSortByNote },
+        { v: "time-asc", t: loc.sidebarSortTimeAsc },
+        { v: "time-desc", t: loc.sidebarSortTimeDesc },
+        { v: "color-asc", t: loc.sidebarSortColor },
+      ];
+      for (const o of opts) {
+        this.sortSelect.createEl("option", { value: o.v, text: o.t });
+      }
+      // 如果当前选项不适用于全部笔记模式，回退
+      if (!["by-note", "time-asc", "time-desc", "color-asc"].includes(currentValue)) {
+        this.sortOption = "by-note";
+      }
+    }
+    this.sortSelect.value = this.sortOption;
+  }
+
+  private renderTabs(container: HTMLElement): void {
+    const tabsEl = container.createDiv({ cls: "annotation-sidebar-tabs" });
+
+    this.tabs.current = tabsEl.createEl("button", {
+      cls: "annotation-sidebar-tab active",
+      text: t().sidebarCurrentNote,
+    });
+    this.tabs.all = tabsEl.createEl("button", {
+      cls: "annotation-sidebar-tab",
+      text: t().sidebarAllNotes,
+    });
+
+    this.tabs.current.addEventListener("click", () => this.switchMode("current"));
+    this.tabs.all.addEventListener("click", () => this.switchMode("all"));
+  }
+
+  private switchMode(newMode: SidebarMode): void {
+    if (this.mode === newMode) return;
+    this.mode = newMode;
+    this.tabs.current.toggleClass("active", newMode === "current");
+    this.tabs.all.toggleClass("active", newMode === "all");
+    if (this.exportBtn) {
+      this.exportBtn.toggleClass("is-hidden", newMode !== "current");
+    }
+    this.updateSortOptions();
+    this.closeDetailPanel();
+    void this.refresh();
+  }
+
+  private renderSearchBar(container: HTMLElement): void {
+    const searchBar = container.createDiv({ cls: "annotation-sidebar-search" });
+
+    this.searchInput = searchBar.createEl("input", {
+      type: "text",
+      cls: "annotation-sidebar-search-input",
+      placeholder: t().sidebarSearchPlaceholder,
+    });
+    this.searchInput.addEventListener("input", () => {
+      if (this.searchDebounceTimer) window.clearTimeout(this.searchDebounceTimer);
+      this.searchDebounceTimer = window.setTimeout(() => {
+        this.searchQuery = this.searchInput?.value ?? "";
+        void this.renderCards();
+      }, 300);
+    });
+
+    // 颜色筛选按钮
+    const colorFilters = searchBar.createDiv({ cls: "annotation-sidebar-color-filters" });
+
+    const allBtn = colorFilters.createEl("button", {
+      cls: "annotation-sidebar-color-btn annotation-sidebar-color-all active",
+      text: t().all,
+    });
+    allBtn.addEventListener("click", () => {
+      this.colorFilter = "all";
+      this.updateColorBtnState();
+      void this.renderCards();
+    });
+    this.colorBtns.set("all", allBtn);
+
+    for (const color of getActiveColors(this.plugin.settings)) {
+      const btn = colorFilters.createEl("button", {
+        cls: `annotation-sidebar-color-btn annotation-list-dot ${COLOR_CLASSES[color]}`,
+      });
+      btn.addEventListener("click", () => {
+        this.colorFilter = color;
+        this.updateColorBtnState();
+        void this.renderCards();
+      });
+      this.colorBtns.set(color, btn);
+    }
+  }
+
+  private updateColorBtnState(): void {
+    for (const [key, btn] of this.colorBtns) {
+      btn.toggleClass("active", key === this.colorFilter);
+    }
+  }
+
+  // ========== 数据加载 ==========
+
+  async refresh(): Promise<void> {
+    this.allAnnotationsCache = null;
+    await this.renderCards();
+    const activeFile = this.app.workspace.getActiveFile();
+    this.lastRefreshedNotePath = activeFile?.path ?? null;
+  }
+
+  private async renderCards(): Promise<void> {
+    if (!this.cardListEl) return;
+
+    // 筛选色可能指向已删除（停用）的颜色，重置为全部
+    if (this.colorFilter !== "all" && !getActiveColors(this.plugin.settings).includes(this.colorFilter)) {
+      this.colorFilter = "all";
+      this.updateColorBtnState();
+    }
+
+    // 本次渲染的代次；拍快照 mode，避免 await 期间 mode 被切换后仍走旧分支
+    const myGen = ++this.renderGeneration;
+    const modeSnapshot = this.mode;
+
+    this.cardListEl.empty();
+    this.detailCardData = null;
+
+    let cards: AnnotationCardData[];
+
+    try {
+      if (modeSnapshot === "current") {
+        cards = await this.loadCurrentFileAnnotations();
+      } else {
+        cards = await this.loadAllAnnotations();
+      }
+    } catch {
+      if (myGen === this.renderGeneration) {
+        this.renderEmpty(this.cardListEl, t().sidebarLoadFailed);
+      }
+      return;
+    }
+
+    // 检查点：数据加载后若已被更新的渲染取代，丢弃本次（防重复卡片 / 防混入）
+    if (myGen !== this.renderGeneration) return;
+
+    const filtered = this.applyFilters(cards);
+    const sorted = this.applySort(filtered);
+
+    if (sorted.length === 0) {
+      const loc = t();
+      this.renderEmpty(
+        this.cardListEl,
+        this.searchQuery || this.colorFilter !== "all"
+          ? loc.sidebarNoMatch
+          : loc.sidebarNoAnnotations
+      );
+      return;
+    }
+
+    for (const cardData of sorted) {
+      createAnnotationCard(this.cardListEl, cardData, {
+        onClick: (data) => this.showDetailPanel(data),
+        onOpen: (data) => { void this.handleCardOpen(data); },
+        onDelete: (data) => this.handleCardDelete(data),
+      });
+    }
+  }
+
+  private async loadCurrentFileAnnotations(): Promise<AnnotationCardData[]> {
+    const activeFile = this.app.workspace.getActiveFile();
+
+    if (!activeFile) {
+      // 没有活跃文件，尝试通过标注会话获取
+      const notePath = this.plugin.getActiveAnnotationNotePath();
+      if (notePath) return this.loadAnnotationsForNote(notePath);
+      return [];
+    }
+
+    if (activeFile.extension !== "md") return [];
+
+    // 检查当前文件是否是标注文件（fakeTFile）
+    const originalPath = this.plugin.getOriginalPathByAnnotationPath(activeFile.path);
+    const notePath = originalPath ?? activeFile.path;
+
+    return this.loadAnnotationsForNote(notePath);
+  }
+
+  private async loadAnnotationsForNote(notePath: string): Promise<AnnotationCardData[]> {
+    const hasFile = await this.fileManager.hasAnnotationFile(notePath);
+    if (!hasFile) return [];
+    const annotations = await this.fileManager.getAnnotations(notePath);
+    const fileName = notePath.split("/").pop() ?? notePath;
+    return annotations.map((a) => ({ annotation: a, notePath, fileName }));
+  }
+
+  private async loadAllAnnotations(): Promise<AnnotationCardData[]> {
+    if (this.allAnnotationsCache) return this.allAnnotationsCache;
+
+    const pluginDir = this.plugin.manifest.dir ?? `${this.app.vault.configDir}/plugins/obsidian-annotation-marker`;
+    const annotationsDir = normalizePath(`${pluginDir}/annotations`);
+
+    const exists = await this.app.vault.adapter.exists(annotationsDir);
+    if (!exists) {
+      this.allAnnotationsCache = [];
+      return [];
+    }
+
+    const listed = await this.app.vault.adapter.list(annotationsDir);
+
+    // 并行读取（限流 8 并发，避免大库一次性打满 I/O）：此前逐文件串行 await，
+    // 全部笔记模式下首次加载与缓存失效后的重读都很慢
+    const mdFiles = listed.files.filter((f) => f.endsWith(".md"));
+    const results: AnnotationCardData[] = [];
+    const CONCURRENCY = 8;
+    let cursor = 0;
+
+    const worker = async (): Promise<void> => {
+      while (cursor < mdFiles.length) {
+        const filePath = mdFiles[cursor++]!;
+        try {
+          const notePath = annotationPathToNotePath(pluginDir, filePath);
+          const originalFile = this.app.vault.getAbstractFileByPath(notePath);
+          if (!(originalFile instanceof TFile)) continue;
+          const annotations = await this.fileManager.getAnnotations(notePath);
+          const fileName = originalFile.name;
+          for (const annotation of annotations) {
+            results.push({ annotation, notePath, fileName });
+          }
+        } catch {
+          // 跳过
+        }
+      }
+    };
+
+    await Promise.all(Array.from({ length: Math.min(CONCURRENCY, mdFiles.length) }, worker));
+
+    this.allAnnotationsCache = results;
+    return results;
+  }
+
+  // ========== 筛选与排序 ==========
+
+  private applyFilters(cards: AnnotationCardData[]): AnnotationCardData[] {
+    let result = cards;
+    if (this.colorFilter !== "all") {
+      result = result.filter((c) => c.annotation.color === this.colorFilter);
+    }
+    if (this.searchQuery) {
+      const query = this.searchQuery.toLowerCase();
+      result = result.filter((c) => {
+        const text = c.annotation.text.toLowerCase();
+        const note = c.annotation.note?.toLowerCase() ?? "";
+        const fileName = c.fileName.toLowerCase();
+        return text.includes(query) || note.includes(query) || fileName.includes(query);
+      });
+    }
+    return result;
+  }
+
+  private applySort(cards: AnnotationCardData[]): AnnotationCardData[] {
+    const sorted = [...cards];
+    switch (this.sortOption) {
+      case "position-asc":
+        sorted.sort((a, b) => a.annotation.positions[0]!.start - b.annotation.positions[0]!.start);
+        break;
+      case "position-desc":
+        sorted.sort((a, b) => b.annotation.positions[0]!.start - a.annotation.positions[0]!.start);
+        break;
+      case "time-asc":
+        sorted.sort((a, b) => parseInt(a.annotation.id) - parseInt(b.annotation.id));
+        break;
+      case "time-desc":
+        sorted.sort((a, b) => parseInt(b.annotation.id) - parseInt(a.annotation.id));
+        break;
+      case "color-asc":
+        sorted.sort((a, b) => a.annotation.color.localeCompare(b.annotation.color));
+        break;
+      case "color-desc":
+        sorted.sort((a, b) => b.annotation.color.localeCompare(a.annotation.color));
+        break;
+      case "by-note":
+        sorted.sort((a, b) => {
+          const cmp = a.notePath.localeCompare(b.notePath);
+          if (cmp !== 0) return cmp;
+          return a.annotation.positions[0]!.start - b.annotation.positions[0]!.start;
+        });
+        break;
+    }
+    return sorted;
+  }
+
+  private renderEmpty(container: HTMLElement, message: string): void {
+    container.createDiv({ cls: "annotation-sidebar-empty", text: message });
+  }
+
+  // ========== 详情面板 ==========
+
+  private showDetailPanel(cardData: AnnotationCardData): void {
+    if (!this.cardListEl) return;
+    this.detailCardData = cardData;
+    this.detailIsEditing = false;
+    this.editColor = cardData.annotation.color;
+    this.editNote = cardData.annotation.note;
+    this.editRubyTexts = [...cardData.annotation.rubyTexts];
+
+    this.cardListEl.empty();
+    this.renderDetailContent();
+  }
+
+  private closeDetailPanel(): void {
+    this.detailCardData = null;
+    this.detailIsEditing = false;
+    void this.renderCards();
+  }
+
+  private renderDetailContent(): void {
+    if (!this.cardListEl || !this.detailCardData) return;
+    this.cardListEl.empty();
+
+    const { annotation } = this.detailCardData;
+    const loc = t();
+
+    const panel = this.cardListEl.createDiv({ cls: "annotation-sidebar-detail" });
+
+    // 头部
+    const header = panel.createDiv({ cls: "annotation-sidebar-detail-header" });
+    header.createSpan({ cls: "annotation-sidebar-detail-title", text: loc.sidebarDetailTitle });
+    const closeBtn = header.createEl("button", {
+      cls: "annotation-sidebar-detail-close",
+      text: loc.close,
+    });
+    closeBtn.addEventListener("click", () => this.closeDetailPanel());
+
+    // 标注文字（可选中）
+    const textSection = panel.createDiv({ cls: "annotation-sidebar-detail-section" });
+    const textHeader = textSection.createDiv({ cls: "annotation-sidebar-detail-label-row" });
+    textHeader.createEl("label", { text: loc.sidebarAnnotationText });
+    const textCopyBtn = textHeader.createEl("button", { cls: "annotation-copy-btn", text: loc.copy });
+    textCopyBtn.addEventListener("click", () => {
+      void navigator.clipboard.writeText(annotation.text).then(() => {
+        textCopyBtn.textContent = loc.copied;
+        window.setTimeout(() => { textCopyBtn.textContent = loc.copy; }, 1500);
+      });
+    });
+    textSection.createDiv({ cls: "annotation-sidebar-detail-text", text: annotation.text });
+
+    // 全文/跨段标记
+    if (annotation.isFullText && annotation.positions.length > 1) {
+      textSection.createDiv({
+        cls: "annotation-list-badge",
+        text: loc.fullTextAnnotation(annotation.positions.length),
+      });
+    } else if (annotation.isCrossBlock) {
+      textSection.createDiv({
+        cls: "annotation-list-badge",
+        text: loc.crossBlockAnnotation(annotation.positions.length),
+      });
+    }
+
+    // 标注颜色
+    const colorSection = panel.createDiv({ cls: "annotation-sidebar-detail-section" });
+    colorSection.createEl("label", { text: loc.sidebarAnnotationColor });
+
+    if (this.detailIsEditing) {
+      const colorContainer = colorSection.createDiv({ cls: "annotation-color-buttons" });
+      for (const c of getActiveColors(this.plugin.settings)) {
+        const btn = colorContainer.createEl("button", {
+          cls: `annotation-color-dot ${COLOR_CLASSES[c]}`,
+        });
+        if (c === this.editColor) btn.addClass("active");
+        btn.addEventListener("click", () => {
+          this.editColor = c;
+          colorContainer.querySelectorAll(".annotation-color-dot")
+            .forEach((b) => b.removeClass("active"));
+          btn.addClass("active");
+        });
+      }
+    } else {
+      colorSection.createDiv({ cls: "annotation-sidebar-detail-color" }).createSpan({
+        cls: `annotation-list-dot ${COLOR_CLASSES[annotation.color]}`,
+      });
+    }
+
+    // 批注内容
+    const noteSection = panel.createDiv({ cls: "annotation-sidebar-detail-section" });
+    const noteHeader = noteSection.createDiv({ cls: "annotation-sidebar-detail-label-row" });
+    noteHeader.createEl("label", { text: loc.sidebarNoteSection });
+
+    const maxLen = this.plugin.settings.maxNoteLength;
+
+    if (this.detailIsEditing) {
+      const noteInput = noteSection.createEl("textarea", {
+        cls: "annotation-sidebar-detail-textarea",
+      });
+      noteInput.setAttribute("maxlength", String(maxLen));
+      noteInput.setAttribute("rows", "3");
+      noteInput.setAttribute("placeholder", loc.sidebarNoteEditPlaceholder);
+      noteInput.value = this.editNote;
+
+      const charCount = noteSection.createDiv({
+        cls: "annotation-char-count",
+        text: loc.charCount(this.editNote.length, maxLen),
+      });
+      noteInput.addEventListener("input", () => {
+        this.editNote = noteInput.value;
+        charCount.textContent = loc.charCount(noteInput.value.length, maxLen);
+        charCount.toggleClass("annotation-char-count-error", noteInput.value.length > maxLen);
+      });
+    } else {
+      if (annotation.note) {
+        const noteCopyBtn = noteHeader.createEl("button", { cls: "annotation-copy-btn", text: loc.sidebarNoteCopy });
+        noteCopyBtn.addEventListener("click", () => {
+          void navigator.clipboard.writeText(annotation.note).then(() => {
+            noteCopyBtn.textContent = loc.sidebarNoteCopied;
+            window.setTimeout(() => { noteCopyBtn.textContent = loc.sidebarNoteCopyRestore; }, 1500);
+          });
+        });
+      }
+      noteSection.createDiv({
+        cls: "annotation-sidebar-detail-note",
+        text: annotation.note || loc.sidebarNoteEmpty,
+      });
+    }
+
+    // 注音
+    if (annotation.rubyTexts.length > 0 || this.detailIsEditing) {
+      const rubySection = panel.createDiv({ cls: "annotation-sidebar-detail-section" });
+      rubySection.createEl("label", { text: loc.sidebarRubySection });
+
+      if (this.detailIsEditing) {
+        const rubyList = rubySection.createDiv({ cls: "annotation-sidebar-detail-ruby-list" });
+        const updateRubyList = () => {
+          rubyList.empty();
+          if (this.editRubyTexts.length === 0) {
+            rubyList.createDiv({ text: loc.noRuby, cls: "annotation-ruby-empty" });
+          } else {
+            for (let i = 0; i < this.editRubyTexts.length; i++) {
+              const ruby = this.editRubyTexts[i]!;
+              const item = rubyList.createDiv({ cls: "annotation-ruby-item" });
+              item.createSpan({
+                cls: "annotation-ruby-item-text",
+                text: `${annotation.text.substring(ruby.startIndex, ruby.startIndex + ruby.length)} → ${ruby.ruby}`,
+              });
+              const delBtn = item.createEl("button", {
+                text: loc.close,
+                cls: "annotation-ruby-item-delete",
+              });
+              delBtn.addEventListener("click", () => {
+                this.editRubyTexts.splice(i, 1);
+                updateRubyList();
+              });
+            }
+          }
+        };
+        updateRubyList();
+      } else {
+        const rubyList = rubySection.createDiv({ cls: "annotation-sidebar-detail-ruby-list" });
+        for (const ruby of annotation.rubyTexts) {
+          rubyList.createDiv({
+            cls: "annotation-ruby-item",
+            text: `${annotation.text.substring(ruby.startIndex, ruby.startIndex + ruby.length)} → ${ruby.ruby}`,
+          });
+        }
+      }
+    }
+
+    // 操作按钮
+    const actions = panel.createDiv({ cls: "annotation-sidebar-detail-actions" });
+
+    if (this.detailIsEditing) {
+      const saveBtn = actions.createEl("button", {
+        text: loc.save,
+        cls: "annotation-btn annotation-btn-primary",
+      });
+      saveBtn.addEventListener("click", () => { void this.handleDetailSave(); });
+
+      const cancelBtn = actions.createEl("button", {
+        text: loc.cancel,
+        cls: "annotation-btn annotation-btn-secondary",
+      });
+      cancelBtn.addEventListener("click", () => {
+        this.detailIsEditing = false;
+        this.editColor = annotation.color;
+        this.editNote = annotation.note;
+        this.editRubyTexts = [...annotation.rubyTexts];
+        this.renderDetailContent();
+      });
+    } else {
+      const editBtn = actions.createEl("button", {
+        text: loc.edit,
+        cls: "annotation-btn annotation-btn-secondary",
+      });
+      editBtn.addEventListener("click", () => {
+        this.detailIsEditing = true;
+        this.renderDetailContent();
+      });
+
+      const openBtn = actions.createEl("button", {
+        text: loc.sidebarOpenNote,
+        cls: "annotation-btn annotation-btn-secondary",
+      });
+      openBtn.addEventListener("click", () => {
+        if (this.detailCardData) void this.handleCardOpen(this.detailCardData);
+      });
+
+      const deleteBtn = actions.createEl("button", {
+        text: loc.sidebarDeleteAnnotation,
+        cls: "annotation-btn annotation-btn-danger",
+      });
+      deleteBtn.addEventListener("click", () => {
+        if (this.detailCardData) this.handleCardDelete(this.detailCardData);
+      });
+    }
+  }
+
+  // ========== 保存编辑 ==========
+
+  private async handleDetailSave(): Promise<void> {
+    if (!this.detailCardData) return;
+    const { annotation, notePath } = this.detailCardData;
+
+    // 查找标注视图
+    const view = this.findAnnotationView(notePath);
+    let edited = false;
+
+    if (view && view.getMode() === "source") {
+      edited = await editAnnotationInEditor(view, this.fileManager, notePath, annotation.id, {
+        color: this.editColor,
+        note: this.editNote,
+        rubyTexts: this.editRubyTexts.length > 0 ? this.editRubyTexts : undefined,
+        isFullText: annotation.isFullText,
+        isCrossBlock: annotation.isCrossBlock,
+      });
+    }
+
+    if (!edited) {
+      await this.fileManager.updateAnnotation(notePath, annotation.id, {
+        color: this.editColor,
+        note: this.editNote,
+        rubyTexts: this.editRubyTexts.length > 0 ? this.editRubyTexts : undefined,
+      });
+    }
+
+    // 刷新标注视图
+    await this.plugin.refreshAnnotationView(notePath);
+    this.closeDetailPanel();
+    new Notice(t().noticeAnnotationUpdated);
+  }
+
+  // ========== 查找标注视图 ==========
+
+  private findAnnotationView(notePath: string): MarkdownView | null {
+    const annotationPath = this.plugin.activeAnnotationSessions.get(notePath);
+    if (!annotationPath) return null;
+
+    let result: MarkdownView | null = null;
+    this.app.workspace.iterateAllLeaves((leaf) => {
+      const view = leaf.view;
+      if (view instanceof MarkdownView && view.file?.path === annotationPath) {
+        result = view;
+      }
+    });
+    return result;
+  }
+
+  // ========== 卡片操作 ==========
+
+  private async handleCardOpen(cardData: AnnotationCardData): Promise<void> {
+    const { notePath, annotation } = cardData;
+
+    // 检查目标笔记是否已在标注视图中
+    const annotationPath = this.plugin.activeAnnotationSessions.get(notePath);
+    let targetLeaf: WorkspaceLeaf | null = null;
+
+    if (annotationPath) {
+      this.app.workspace.iterateAllLeaves((leaf) => {
+        // 只匹配主区 leaf，排除左右 side dock，避免误激活 side view 导致侧边栏跳走
+        const root = leaf.getRoot();
+        if (root !== this.app.workspace.rootSplit) return;
+        const filePath = getViewFilePath(leaf.view);
+        if (filePath === annotationPath) {
+          targetLeaf = leaf;
+        } else if (!targetLeaf) {
+          // 标签页未激活时 view.file 可能暂时为 null，用 viewState 兜底（与 main.ts layout-change 一致）
+          const vs = leaf.getViewState();
+          if ((vs.state as { file?: string }).file === annotationPath) {
+            targetLeaf = leaf;
+          }
+        }
+      });
+    }
+
+    if (!targetLeaf) {
+      const file = this.app.vault.getAbstractFileByPath(notePath);
+      if (!(file instanceof TFile)) {
+        new Notice(t().noticeNoteFileNotFound);
+        return;
+      }
+      // getLeaf(false) 复用活动 leaf；从侧边栏点击时活动 leaf 可能就是侧边栏 leaf，
+      // 在其上 openFile 会把侧边栏视图替换成笔记，故检测到 side dock 时改在主区打开
+      let leaf = this.app.workspace.getLeaf(false);
+      const root = leaf.getRoot();
+      if (root === this.app.workspace.leftSplit || root === this.app.workspace.rightSplit) {
+        leaf = this.app.workspace.getLeaf("tab");
+      }
+      await leaf.openFile(file);
+      await this.plugin.openAnnotationView(leaf, notePath);
+      targetLeaf = leaf;
+    }
+
+    this.app.workspace.setActiveLeaf(targetLeaf, { focus: true });
+    await this.scrollToAnnotationInLeaf(targetLeaf, annotation);
+  }
+
+  private async scrollToAnnotationInLeaf(leaf: WorkspaceLeaf, annotation: ParsedAnnotation): Promise<void> {
+    const view = leaf.view as MarkdownView;
+    if (!view) return;
+
+    const viewNotePath = this.getNotePathForView(view);
+    if (!viewNotePath) return;
+
+    const ap = this.plugin.activeAnnotationSessions.get(viewNotePath);
+    const notePath = ap ? this.plugin.getOriginalPathByAnnotationPath(ap) ?? viewNotePath : viewNotePath;
+
+    await scrollToAnnotation(
+      this.app,
+      this.fileManager,
+      view,
+      notePath,
+      annotation,
+      { delayBeforeScroll: 400 }
+    );
+  }
+
+  private getNotePathForView(view: MarkdownView): string | null {
+    const filePath = view.file?.path;
+    if (!filePath) return null;
+    return this.plugin.getOriginalPathByAnnotationPath(filePath) ?? filePath;
+  }
+
+  private handleCardDelete(cardData: AnnotationCardData): void {
+    const { annotation, notePath } = cardData;
+
+    const loc = t();
+    const msg = (annotation.isFullText || annotation.positions.length > 1) && annotation.positions.length > 1
+      ? loc.confirmDeleteMulti(annotation.positions.length)
+      : loc.confirmDelete;
+
+    // 使用 Obsidian Modal 替代浏览器 confirm()，避免焦点丢失
+    new ConfirmOverwriteModal(
+      this.app,
+      msg,
+      async () => {
+        const view = this.findAnnotationView(notePath);
+        const deleted = view && view.getMode() === "source"
+          ? await editAnnotationInEditor(view, this.fileManager, notePath, annotation.id, "delete")
+          : false;
+
+        if (!deleted) {
+          await this.fileManager.removeAnnotation(notePath, annotation.id);
+        }
+
+        await this.plugin.refreshAnnotationView(notePath);
+        this.closeDetailPanel();
+        new Notice(loc.noticeDeleted);
+      },
+      loc.delete
+    ).open();
+  }
+
+  // ========== 导出标注 ==========
+
+  private async exportCurrentAnnotations(): Promise<void> {
+    const loc = t();
+    const cards = await this.loadCurrentFileAnnotations();
+    if (cards.length === 0) {
+      new Notice(loc.noData);
+      return;
+    }
+
+    // 导出仅在当前笔记模式可用（exportBtn 在 by-note 所属的"全部笔记"模式下隐藏），
+    // 防御性兜底：万一 sortOption 残留 by-note 则回退为位置正序
+    const sortOption = this.sortOption === "by-note" ? "position-asc" as const : this.sortOption;
+    const annotations = sortAnnotations(
+      cards.map((c) => c.annotation),
+      sortOption
+    );
+    const content = buildExportContent(annotations);
+    const exportFolder = this.plugin.settings.exportFolder?.trim();
+
+    const doExport = (folderPath: string) => {
+      const activeFile = this.app.workspace.getActiveFile();
+      const noteName = activeFile?.name?.replace(/\.md$/, "") ?? "";
+
+      new FileNameModal(this.app, noteName, async (fileName: string) => {
+        const filePath = normalizePath(folderPath && folderPath !== "/" ? `${folderPath}/${fileName}` : fileName);
+        const existing = this.app.vault.getAbstractFileByPath(filePath);
+
+        const doWrite = async () => {
+          try {
+            if (existing instanceof TFile) {
+              await this.app.vault.modify(existing, content);
+            } else {
+              await this.app.vault.create(filePath, content);
+            }
+            new Notice(loc.noticeExportSuccess(annotations.length));
+          } catch (e) {
+            console.error("导出失败:", e);
+            new Notice(loc.noticeExportFailed);
+          }
+        };
+
+        if (existing instanceof TFile) {
+          new ConfirmOverwriteModal(
+            this.app,
+            `${loc.exportConfirmOverwrite}\n${filePath}\n\n${loc.exportConfirmOverwriteDesc}`,
+            doWrite
+          ).open();
+        } else {
+          await doWrite();
+        }
+      }).open();
+    };
+
+    if (exportFolder) {
+      doExport(exportFolder);
+    } else {
+      new FolderSuggestModal(this.app, doExport).open();
+    }
+  }
+}
