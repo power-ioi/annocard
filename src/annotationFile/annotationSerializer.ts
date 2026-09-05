@@ -2,13 +2,12 @@ import type { AnnotationColor, AnnotationRuby, NewAnnotation } from "../types";
 import { COLOR_BG_VARS, COLOR_ACCENT_VARS } from "../constants";
 import { generateId, encodeAttr } from "../utils/helpers";
 import { findTextInSource, buildCleanedMap, expandToWikiLinks, findExcludedRanges } from "../utils/contentMapper";
-import { computeSegments, buildSegmentHtml } from "../utils/overlapUtils";
+import { computeSegments, buildSegmentHtml, buildCardAttrs, type Interval } from "../utils/overlapUtils";
 
 // 选中了 wiki-link 内部分文字时抛出
 export class PartialWikiLinkError extends Error {
   constructor() { super("partialWikiLink"); }
 }
-import type { Interval } from "../utils/overlapUtils";
 import { parseAnnotations, stripAnnotationTags, findMatchingCloseMark } from "./annotationParser";
 
 // 清理原生 <ruby> 标签（非插件生成）：移除 <rt> 内容和 <ruby> 标签本身
@@ -50,17 +49,30 @@ export function buildMarkTag(
   rubyTexts?: AnnotationRuby[],
   createdAt?: string,
   isFullText?: boolean,
-  isCrossBlock?: boolean
+  isCrossBlock?: boolean,
+  cardFields?: {
+    tags?: string[];
+    archived?: boolean;
+    reviewCount?: number;
+    lastReviewedAt?: number;
+  }
 ): string {
   const bgVar = COLOR_BG_VARS[color];
   const accentVar = COLOR_ACCENT_VARS[color] || "transparent";
   const noteAttr = note ? ` data-annotation-note="${encodeAttr(note)}"` : "";
-  const fullTextAttr = isFullText ? ` data-annotation-fulltext="true"` : "";
-  const crossBlockAttr = isCrossBlock ? ` data-annotation-crossblock="true"` : "";
+  // AnnoCard 卡片字段（含 fulltext/crossblock 标记）统一通过 buildCardAttrs 拼接
+  const cardAttr = buildCardAttrs({
+    isFullText,
+    isCrossBlock,
+    tags: cardFields?.tags,
+    archived: cardFields?.archived,
+    reviewCount: cardFields?.reviewCount,
+    lastReviewedAt: cardFields?.lastReviewedAt,
+  });
 
   const annotatedText = buildAnnotatedText(text, id, rubyTexts);
 
-  return `<mark style="background:${bgVar};color:inherit;--annotation-accent:${accentVar}" data-annotation-id="${id}"${noteAttr}${fullTextAttr}${crossBlockAttr}>${annotatedText}</mark>`;
+  return `<mark style="background:${bgVar};color:inherit;--annotation-accent:${accentVar}" data-annotation-id="${id}"${noteAttr}${cardAttr}>${annotatedText}</mark>`;
 }
 
 // 在标注文件内容中插入新标注
@@ -153,6 +165,12 @@ function rebuildOverlapRegion(
       color: a.color,
       note: a.note,
       rubyTexts: a.rubyTexts,
+      tags: a.tags,
+      archived: a.archived,
+      reviewCount: a.reviewCount,
+      lastReviewedAt: a.lastReviewedAt,
+      isFullText: a.isFullText,
+      isCrossBlock: a.isCrossBlock,
     })),
     {
       id: newId,
@@ -160,6 +178,13 @@ function rebuildOverlapRegion(
       color: annotation.color,
       note: annotation.note,
       rubyTexts: annotation.rubyTexts,
+      // 新标注无卡片字段（默认值），显式列出保持类型一致
+      tags: undefined as string[] | undefined,
+      archived: undefined as boolean | undefined,
+      reviewCount: undefined as number | undefined,
+      lastReviewedAt: undefined as number | undefined,
+      isFullText: undefined as boolean | undefined,
+      isCrossBlock: undefined as boolean | undefined,
     },
   ];
 
@@ -175,6 +200,12 @@ function rebuildOverlapRegion(
         // note 传原文，由 buildSegmentHtml 统一转义
         note: ann.note || undefined,
         rubyTexts: ann.rubyTexts,
+        tags: ann.tags,
+        archived: ann.archived,
+        reviewCount: ann.reviewCount,
+        lastReviewedAt: ann.lastReviewedAt,
+        isFullText: ann.isFullText,
+        isCrossBlock: ann.isCrossBlock,
       });
     }
   }
@@ -353,6 +384,11 @@ export function updateAnnotationTag(
     color?: AnnotationColor;
     note?: string;
     rubyTexts?: AnnotationRuby[];
+    // AnnoCard 卡片化管理字段
+    tags?: string[];
+    archived?: boolean;
+    reviewCount?: number;
+    lastReviewedAt?: number;
   }
 ): string {
   // 用深度配对定位每个完整 <mark> 区间：惰性正则在嵌套标注（重叠重建的产物）上
@@ -371,6 +407,11 @@ export function updateAnnotationTag(
   }
 
   if (ranges.length === 0) return content;
+
+  const hasCardUpdates = updates.tags !== undefined
+    || updates.archived !== undefined
+    || updates.reviewCount !== undefined
+    || updates.lastReviewedAt !== undefined;
 
   // 从后往前重建，避免前序替换使后序偏移失效
   let result = content;
@@ -406,6 +447,23 @@ export function updateAnnotationTag(
       } else {
         newAttrs = newAttrs.replace(/\s*data-annotation-note="[^"]*"/, "");
       }
+    }
+
+    // AnnoCard 卡片字段更新：先剥离旧属性，再追加新属性
+    // （多 <mark> 同 ID 时每个标签都更新，保持与 note 一致的处理口径）
+    if (hasCardUpdates) {
+      newAttrs = newAttrs.replace(/\s*data-annotation-tags="[^"]*"/g, "");
+      newAttrs = newAttrs.replace(/\s*data-annotation-archived="[^"]*"/g, "");
+      newAttrs = newAttrs.replace(/\s*data-annotation-review-count="[^"]*"/g, "");
+      newAttrs = newAttrs.replace(/\s*data-annotation-last-reviewed="[^"]*"/g, "");
+
+      const cardAttr = buildCardAttrs({
+        tags: updates.tags,
+        archived: updates.archived,
+        reviewCount: updates.reviewCount,
+        lastReviewedAt: updates.lastReviewedAt,
+      });
+      newAttrs += cardAttr;
     }
 
     let newInnerContent = innerContent;

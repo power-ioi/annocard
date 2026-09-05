@@ -1,6 +1,6 @@
 import { App, TFile, normalizePath } from "obsidian";
 import type { NewAnnotation, ParsedAnnotation, AnnotationUpdates } from "../types";
-import { notePathToAnnotationPath } from "../utils/helpers";
+import { notePathToAnnotationPath, annotationPathToNotePath } from "../utils/helpers";
 import { parseAnnotations, stripAnnotationTags } from "./annotationParser";
 import { insertAnnotation, insertFullTextAnnotation, insertCrossBlockAnnotation, removeAnnotationTag, updateAnnotationTag } from "./annotationSerializer";
 import { diffSync } from "./diffSync";
@@ -208,5 +208,106 @@ export class AnnotationFileManager {
     const content = await this.readAnnotationFile(notePath);
     const newContent = updateAnnotationTag(content, annotationId, updates);
     await this.writeAnnotationFile(notePath, newContent);
+  }
+
+  // ========== AnnoCard 卡片化管理新增 API ==========
+
+  // 遍历所有标注文件，汇总返回全库标注（供卡片侧边栏"全库"模式用）
+  // 返回值每条含 notePath，便于卡片层跳转与回写
+  async getAllAnnotations(): Promise<Array<{ annotation: ParsedAnnotation; notePath: string }>> {
+    const annotationsDir = normalizePath(`${this.pluginDir}/annotations`);
+    const exists = await this.app.vault.adapter.exists(annotationsDir);
+    if (!exists) return [];
+
+    const listed = await this.app.vault.adapter.list(annotationsDir);
+    const mdFiles = listed.files.filter((f) => f.endsWith(".md"));
+    const results: Array<{ annotation: ParsedAnnotation; notePath: string }> = [];
+
+    // 并行读取（限流 8 并发，与 AnnotationSidebarView.loadAllAnnotations 一致）
+    const CONCURRENCY = 8;
+    let cursor = 0;
+    const worker = async (): Promise<void> => {
+      while (cursor < mdFiles.length) {
+        const filePath = mdFiles[cursor++]!;
+        try {
+          const notePath = annotationPathToNotePath(this.pluginDir, filePath);
+          const annotations = await this.getAnnotations(notePath);
+          for (const annotation of annotations) {
+            results.push({ annotation, notePath });
+          }
+        } catch {
+          // 跳过损坏文件
+        }
+      }
+    };
+    await Promise.all(Array.from({ length: Math.min(CONCURRENCY, mdFiles.length) }, worker));
+    return results;
+  }
+
+  // 单文件标注（供卡片侧边栏"当前文件"模式用）
+  // 包装 getAnnotations，返回带 notePath 的结构，与 getAllAnnotations 形态一致
+  async getAnnotationsByFile(notePath: string): Promise<Array<{ annotation: ParsedAnnotation; notePath: string }>> {
+    const hasFile = await this.hasAnnotationFile(notePath);
+    if (!hasFile) return [];
+    const annotations = await this.getAnnotations(notePath);
+    return annotations.map((annotation) => ({ annotation, notePath }));
+  }
+
+  // 查找指定标注 ID 所在的笔记路径（全库扫描，O(标注文件数)）
+  // 用于卡片层仅持有 id 时定位回写文件（如批量删除/复习计数）
+  async findAnnotationNotePath(annotationId: string): Promise<string | null> {
+    const all = await this.getAllAnnotations();
+    const found = all.find((item) => item.annotation.id === annotationId);
+    return found ? found.notePath : null;
+  }
+
+  // 按 ID 更新单条标注（跨文件）：先定位 notePath 再回写
+  // 卡片层编辑批注/打标签/归档/复习计数时调用
+  async updateAnnotationById(annotationId: string, updates: AnnotationUpdates): Promise<boolean> {
+    const notePath = await this.findAnnotationNotePath(annotationId);
+    if (!notePath) return false;
+    await this.updateAnnotation(notePath, annotationId, updates);
+    return true;
+  }
+
+  // 按 ID 批量删除标注（跨文件）
+  // 先扫描定位每个 id 所在文件，按 notePath 分组后逐文件 removeAnnotationTag
+  async deleteAnnotations(ids: string[]): Promise<void> {
+    if (ids.length === 0) return;
+
+    // 收集 id → notePath 映射（一次全库扫描，避免多次扫描）
+    const all = await this.getAllAnnotations();
+    const idToNotePath = new Map<string, string>();
+    for (const { annotation, notePath } of all) {
+      if (ids.includes(annotation.id)) {
+        idToNotePath.set(annotation.id, notePath);
+      }
+    }
+
+    // 按 notePath 分组
+    const byNotePath = new Map<string, string[]>();
+    for (const id of ids) {
+      const notePath = idToNotePath.get(id);
+      if (!notePath) continue; // 找不到则跳过（可能已被删）
+      let arr = byNotePath.get(notePath);
+      if (!arr) {
+        arr = [];
+        byNotePath.set(notePath, arr);
+      }
+      arr.push(id);
+    }
+
+    // 逐文件批量删除：读一次，循环剥离所有目标 id 标签，写一次
+    for (const [notePath, idList] of byNotePath) {
+      try {
+        let content = await this.readAnnotationFile(notePath);
+        for (const id of idList) {
+          content = removeAnnotationTag(content, id);
+        }
+        await this.writeAnnotationFile(notePath, content);
+      } catch (e) {
+        console.error("批量删除标注失败:", notePath, e);
+      }
+    }
   }
 }

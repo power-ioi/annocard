@@ -28,6 +28,28 @@ export interface ParsedAnnotation {
   isFullText?: boolean;
   // 跨段标注标记
   isCrossBlock?: boolean;
+
+  // —— AnnoCard 卡片化管理新增字段（HiLighter 融合）——
+  // 自定义标签；旧数据无此属性时加载层补默认 []，卡片层假设字段齐全
+  tags: string[];
+  // 是否已归档（复习模式用）；默认 false
+  archived: boolean;
+  // 复习次数；默认 0
+  reviewCount: number;
+  // 上次复习时间戳（ms）；默认 undefined（未复习过）
+  lastReviewedAt?: number;
+}
+
+// AnnoCard 卡片层可编辑的标注字段子集（用于 updateAnnotation patch）
+// 注意：color/note/rubyTexts 走原 AnnotationUpdates 通道；此处仅追加新字段
+export interface AnnotationCardUpdates {
+  color?: AnnotationColor;
+  note?: string;
+  rubyTexts?: AnnotationRuby[];
+  tags?: string[];
+  archived?: boolean;
+  reviewCount?: number;
+  lastReviewedAt?: number;
 }
 
 // 创建新标注时的参数
@@ -60,6 +82,11 @@ export interface AnnotationUpdates {
   color?: AnnotationColor;
   note?: string;
   rubyTexts?: AnnotationRuby[];
+  // AnnoCard 卡片化管理新字段（可选）
+  tags?: string[];
+  archived?: boolean;
+  reviewCount?: number;
+  lastReviewedAt?: number;
 }
 
 export type NoteEffect = "none" | "underline-thick" | "underline-dashed" | "underline-wavy" | "underline-double";
@@ -101,6 +128,16 @@ export interface AnnotationPluginSettings {
   autoOpenAnnotation: boolean;
   // 导出
   exportFolder: string;
+
+  // —— AnnoCard 卡片化管理设置 ——
+  // 卡片侧边栏默认范围：当前文件 / 全库
+  cardDefaultScope: "current" | "all";
+  // 复习模式每次洗牌数量上限
+  reviewBatchSize: number;
+  // 是否显示打开卡片侧边栏的 ribbon 图标
+  showCardRibbon: boolean;
+  // 卡片侧边栏是否默认显示已归档标注（false=隐藏）
+  showArchivedInCard: boolean;
 }
 
 export const DEFAULT_SETTINGS: AnnotationPluginSettings = {
@@ -133,6 +170,12 @@ export const DEFAULT_SETTINGS: AnnotationPluginSettings = {
   defaultViewMode: "preview",
   autoOpenAnnotation: false,
   exportFolder: "",
+
+  // AnnoCard 卡片化管理默认设置
+  cardDefaultScope: "current",
+  reviewBatchSize: 50,
+  showCardRibbon: true,
+  showArchivedInCard: false,
 };
 
 // 颜色序号上限（不含 none）；实际激活数量由 settings.activeColors 控制

@@ -12,6 +12,39 @@ export interface Interval {
   annotationColor?: AnnotationColor;
   note?: string;
   rubyTexts?: Array<{ startIndex: number; length: number; ruby: string }>;
+  // AnnoCard 卡片化管理字段（重叠重建时一并保留，避免标签/归档状态丢失）
+  tags?: string[];
+  archived?: boolean;
+  reviewCount?: number;
+  lastReviewedAt?: number;
+  isFullText?: boolean;
+  isCrossBlock?: boolean;
+}
+
+// 构建 AnnoCard 卡片字段的属性字符串（用于 <mark> 标签）
+// 与 buildMarkTag / updateAnnotationTag 保持一致：tags 以 JSON 数组 + encodeAttr 转义存储
+export function buildCardAttrs(fields: {
+  tags?: string[];
+  archived?: boolean;
+  reviewCount?: number;
+  lastReviewedAt?: number;
+  isFullText?: boolean;
+  isCrossBlock?: boolean;
+}): string {
+  let attrs = "";
+  if (fields.isFullText) attrs += ` data-annotation-fulltext="true"`;
+  if (fields.isCrossBlock) attrs += ` data-annotation-crossblock="true"`;
+  if (fields.tags && fields.tags.length > 0) {
+    attrs += ` data-annotation-tags="${encodeAttr(JSON.stringify(fields.tags))}"`;
+  }
+  if (fields.archived) attrs += ` data-annotation-archived="true"`;
+  if (fields.reviewCount && fields.reviewCount > 0) {
+    attrs += ` data-annotation-review-count="${fields.reviewCount}"`;
+  }
+  if (fields.lastReviewedAt && fields.lastReviewedAt > 0) {
+    attrs += ` data-annotation-last-reviewed="${fields.lastReviewedAt}"`;
+  }
+  return attrs;
 }
 
 export interface Segment {
@@ -107,8 +140,17 @@ export function buildSegmentHtml(
       const accentVar = COLOR_ACCENT_VARS[color] || "transparent";
       // note 在本函数内统一转义（调用方传入原文即可，不再依赖调用方预转义的隐式契约）
       const noteAttr = ann?.note ? ` data-annotation-note="${encodeAttr(ann.note)}"` : "";
+      // AnnoCard 卡片字段一并写回（重叠重建不丢失标签/归档/复习状态）
+      const cardAttr = ann ? buildCardAttrs({
+        tags: ann.tags,
+        archived: ann.archived,
+        reviewCount: ann.reviewCount,
+        lastReviewedAt: ann.lastReviewedAt,
+        isFullText: ann.isFullText,
+        isCrossBlock: ann.isCrossBlock,
+      }) : "";
 
-      wrapped = `<mark style="background:${bgVar};--annotation-accent:${accentVar}" data-annotation-id="${id}"${noteAttr}>${wrapped}</mark>`;
+      wrapped = `<mark style="background:${bgVar};--annotation-accent:${accentVar}" data-annotation-id="${id}"${noteAttr}${cardAttr}>${wrapped}</mark>`;
     }
 
     parts.push(wrapped);

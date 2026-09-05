@@ -226,6 +226,9 @@ export function parseAnnotations(content: string): ParsedAnnotation[] {
       end: seg.endIndex,
     }));
 
+    // AnnoCard 卡片化管理字段：缺失时返回默认值（静默升级旧数据）
+    const cardFields = parseCardFields(first.attrs);
+
     annotations.push({
       id,
       color,
@@ -235,8 +238,53 @@ export function parseAnnotations(content: string): ParsedAnnotation[] {
       positions,
       isFullText,
       isCrossBlock,
+      tags: cardFields.tags,
+      archived: cardFields.archived,
+      reviewCount: cardFields.reviewCount,
+      lastReviewedAt: cardFields.lastReviewedAt,
     });
   }
 
   return annotations;
+}
+
+// 解析 AnnoCard 卡片化管理字段（tags/archived/reviewCount/lastReviewedAt）
+// 旧标注文件无这些属性 → 返回默认值，保证卡片层字段齐全
+export function parseCardFields(attrs: string): {
+  tags: string[];
+  archived: boolean;
+  reviewCount: number;
+  lastReviewedAt?: number;
+} {
+  // tags 以 JSON 数组形式存储（encodeAttr 转义后写入），解析失败回退 []
+  let tags: string[] = [];
+  const tagsAttr = getAttr(attrs, "data-annotation-tags");
+  if (tagsAttr) {
+    try {
+      const parsed = JSON.parse(decodeAttr(tagsAttr));
+      if (Array.isArray(parsed)) {
+        tags = parsed.filter((t): t is string => typeof t === "string");
+      }
+    } catch {
+      // 损坏的 tags 属性忽略，回退默认
+    }
+  }
+
+  const archived = getAttr(attrs, "data-annotation-archived") === "true";
+
+  let reviewCount = 0;
+  const reviewCountAttr = getAttr(attrs, "data-annotation-review-count");
+  if (reviewCountAttr) {
+    const n = parseInt(reviewCountAttr, 10);
+    if (!isNaN(n) && n >= 0) reviewCount = n;
+  }
+
+  let lastReviewedAt: number | undefined;
+  const lastReviewedAttr = getAttr(attrs, "data-annotation-last-reviewed");
+  if (lastReviewedAttr) {
+    const ts = parseInt(lastReviewedAttr, 10);
+    if (!isNaN(ts) && ts > 0) lastReviewedAt = ts;
+  }
+
+  return { tags, archived, reviewCount, lastReviewedAt };
 }
