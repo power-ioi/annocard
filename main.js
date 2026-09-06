@@ -58,8 +58,6 @@ var DEFAULT_SETTINGS = {
   colorLabel9: "\u989C\u82729",
   colorLabel10: "\u989C\u827210",
   noteEffect: "none",
-  rubyFontSize: "0.7em",
-  rubyColor: "#999999",
   defaultViewMode: "preview",
   autoOpenAnnotation: false,
   exportFolder: "",
@@ -147,42 +145,6 @@ function encodeAttr(str) {
 }
 function decodeAttr(str) {
   return str.replace(/&#10;/g, "\n").replace(/&#13;/g, "\r").replace(/&gt;/g, ">").replace(/&lt;/g, "<").replace(/&quot;/g, '"').replace(/&amp;/g, "&");
-}
-function calculateRangeOffsetInElement(range, element) {
-  var _a;
-  let start = 0;
-  let end = 0;
-  let foundStart = false;
-  const walker = activeDocument.createTreeWalker(element, NodeFilter.SHOW_TEXT, null);
-  let node = walker.nextNode();
-  while (node) {
-    const textNode = node;
-    const nodeLength = ((_a = textNode.textContent) == null ? void 0 : _a.length) || 0;
-    if (!foundStart) {
-      if (textNode === range.startContainer) {
-        start += range.startOffset;
-        foundStart = true;
-        if (range.endContainer === textNode) {
-          end = start + (range.endOffset - range.startOffset);
-          return { start, end };
-        }
-      } else if (textNode === range.endContainer) {
-        end = start + range.endOffset;
-        return { start: 0, end };
-      } else {
-        start += nodeLength;
-      }
-    } else {
-      if (textNode === range.endContainer) {
-        end = start + range.endOffset;
-        return { start, end };
-      } else {
-        start += nodeLength;
-      }
-    }
-    node = walker.nextNode();
-  }
-  return null;
 }
 function countOccurrenceIndex(text, searchText, offset) {
   const positions = [];
@@ -281,32 +243,6 @@ function findMatchingCloseMark(content, openTagEnd) {
   }
   return -1;
 }
-function parseRubyTags(content, parentAnnotationId) {
-  const rubies = [];
-  const rubyRegex = new RegExp(
-    `<ruby\\s+[^>]*data-annotation-id="${parentAnnotationId}"[^>]*>([\\s\\S]*?)<\\/ruby>`,
-    "g"
-  );
-  let match;
-  while ((match = rubyRegex.exec(content)) !== null) {
-    const rubyContent = match[1];
-    const rtMatch = rubyContent.match(/<rt[^>]*data-annotation-id="[^"]*"[^>]*>([\s\S]*?)<\/rt>/);
-    const rtText = rtMatch ? rtMatch[1] : "";
-    const baseTextMatch = rubyContent.match(/^([\s\S]*?)<rt/);
-    const baseText = baseTextMatch ? baseTextMatch[1] : "";
-    if (baseText && rtText) {
-      const beforeRuby = content.substring(0, match.index);
-      const plainBefore = stripRubyText(beforeRuby);
-      rubies.push({
-        startIndex: plainBefore.length,
-        length: baseText.length,
-        // 写入时经 encodeAttr 转义，读取端对称解码
-        ruby: decodeAttr(rtText)
-      });
-    }
-  }
-  return rubies;
-}
 function parseAnnotations(content) {
   const segments = [];
   const openRegex = /<mark\s+([^>]*)>/g;
@@ -346,23 +282,6 @@ function parseAnnotations(content) {
     const isFullText = getAttr(first.attrs, "data-annotation-fulltext") === "true";
     const isCrossBlock = getAttr(first.attrs, "data-annotation-crossblock") === "true";
     const text = isFullText ? stripRubyText(first.content) : group.map((seg) => stripRubyText(seg.content)).join("");
-    const rubyTexts = [];
-    if (isFullText) {
-      rubyTexts.push(...parseRubyTags(first.content, id));
-    } else {
-      let offset = 0;
-      for (const seg of group) {
-        const segRubies = parseRubyTags(seg.content, id);
-        for (const r of segRubies) {
-          rubyTexts.push({
-            startIndex: offset + r.startIndex,
-            length: r.length,
-            ruby: r.ruby
-          });
-        }
-        offset += stripRubyText(seg.content).length;
-      }
-    }
     const positions = group.map((seg) => ({
       start: seg.startIndex,
       end: seg.endIndex
@@ -373,7 +292,6 @@ function parseAnnotations(content) {
       color,
       note,
       text,
-      rubyTexts,
       positions,
       isFullText,
       isCrossBlock,
@@ -874,31 +792,6 @@ function buildSegmentHtml(segments, plainText, annotations) {
       parts.push(plainText.substring(lastEnd, seg.start));
     }
     let enrichedText = plainText.substring(seg.start, seg.end);
-    const segmentRubies = [];
-    for (const id of seg.ids) {
-      const ann = annotations.get(id);
-      if (ann == null ? void 0 : ann.rubyTexts) {
-        for (const ruby of ann.rubyTexts) {
-          const absStart = ann.start + ruby.startIndex;
-          const absEnd = absStart + ruby.length;
-          if (absStart >= seg.start && absEnd <= seg.end) {
-            segmentRubies.push({
-              localStart: absStart - seg.start,
-              localEnd: absEnd - seg.start,
-              ruby: ruby.ruby,
-              annId: id
-            });
-          }
-        }
-      }
-    }
-    segmentRubies.sort((a, b) => b.localStart - a.localStart);
-    for (const sr of segmentRubies) {
-      const before = enrichedText.substring(0, sr.localStart);
-      const target = enrichedText.substring(sr.localStart, sr.localEnd);
-      const after = enrichedText.substring(sr.localEnd);
-      enrichedText = `${before}<ruby data-annotation-id="${sr.annId}">${target}<rt data-annotation-id="${sr.annId}">${encodeAttr(sr.ruby)}</rt></ruby>${after}`;
-    }
     const sortedIds = [...seg.ids].sort();
     let wrapped = enrichedText;
     for (let i = sortedIds.length - 1; i >= 0; i--) {
@@ -936,22 +829,7 @@ var PartialWikiLinkError = class extends Error {
 function stripNativeRuby(text) {
   return text.replace(/<rt[^>]*>[\s\S]*?<\/(?:rt|ruby)>/g, "").replace(/<\/?ruby[^>]*>/g, "");
 }
-function buildRubyTag(annotationId, text, ruby) {
-  return `<ruby data-annotation-id="${annotationId}">${text}<rt data-annotation-id="${annotationId}">${encodeAttr(ruby)}</rt></ruby>`;
-}
-function buildAnnotatedText(text, annotationId, rubyTexts) {
-  if (!rubyTexts || rubyTexts.length === 0) return text;
-  const sorted = [...rubyTexts].sort((a, b) => b.startIndex - a.startIndex);
-  let result = text;
-  for (const ruby of sorted) {
-    const before = result.substring(0, ruby.startIndex);
-    const target = result.substring(ruby.startIndex, ruby.startIndex + ruby.length);
-    const after = result.substring(ruby.startIndex + ruby.length);
-    result = before + buildRubyTag(annotationId, target, ruby.ruby) + after;
-  }
-  return result;
-}
-function buildMarkTag(id, text, color, note, rubyTexts, createdAt, isFullText, isCrossBlock, cardFields) {
+function buildMarkTag(id, text, color, note, createdAt, isFullText, isCrossBlock, cardFields) {
   const bgVar = COLOR_BG_VARS[color];
   const accentVar = COLOR_ACCENT_VARS[color] || "transparent";
   const noteAttr = note ? ` data-annotation-note="${encodeAttr(note)}"` : "";
@@ -963,8 +841,7 @@ function buildMarkTag(id, text, color, note, rubyTexts, createdAt, isFullText, i
     reviewCount: cardFields == null ? void 0 : cardFields.reviewCount,
     lastReviewedAt: cardFields == null ? void 0 : cardFields.lastReviewedAt
   });
-  const annotatedText = buildAnnotatedText(text, id, rubyTexts);
-  return `<mark style="background:${bgVar};color:inherit;--annotation-accent:${accentVar}" data-annotation-id="${id}"${noteAttr}${cardAttr}>${annotatedText}</mark>`;
+  return `<mark style="background:${bgVar};color:inherit;--annotation-accent:${accentVar}" data-annotation-id="${id}"${noteAttr}${cardAttr}>${text}</mark>`;
 }
 function insertAnnotation(content, annotation, customId) {
   const id = customId != null ? customId : generateId();
@@ -1000,7 +877,7 @@ function insertAnnotation(content, annotation, customId) {
   const sourceSlice = content.substring(start, end);
   const needsRebuild = /<(?:mark|ruby|rt)\s[^>]*data-annotation-id|<\/mark>/i.test(sourceSlice);
   if (!needsRebuild) {
-    const tag = sourceSlice === annotation.text ? buildMarkTag(id, sourceSlice, annotation.color, annotation.note, annotation.rubyTexts) : buildMarkTag(id, sourceSlice, annotation.color, annotation.note);
+    const tag = sourceSlice === annotation.text ? buildMarkTag(id, sourceSlice, annotation.color, annotation.note) : buildMarkTag(id, sourceSlice, annotation.color, annotation.note);
     return {
       content: content.substring(0, start) + tag + content.substring(end),
       id
@@ -1033,7 +910,6 @@ function rebuildOverlapRegion(content, newStart, newEnd, newId, annotation) {
       text: a.text,
       color: a.color,
       note: a.note,
-      rubyTexts: a.rubyTexts,
       tags: a.tags,
       archived: a.archived,
       reviewCount: a.reviewCount,
@@ -1046,7 +922,6 @@ function rebuildOverlapRegion(content, newStart, newEnd, newId, annotation) {
       text: annotation.text,
       color: annotation.color,
       note: annotation.note,
-      rubyTexts: annotation.rubyTexts,
       // 新标注无卡片字段（默认值），显式列出保持类型一致
       tags: void 0,
       archived: void 0,
@@ -1067,7 +942,6 @@ function rebuildOverlapRegion(content, newStart, newEnd, newId, annotation) {
         annotationColor: ann.color,
         // note 传原文，由 buildSegmentHtml 统一转义
         note: ann.note || void 0,
-        rubyTexts: ann.rubyTexts,
         tags: ann.tags,
         archived: ann.archived,
         reviewCount: ann.reviewCount,
@@ -1260,12 +1134,7 @@ function updateAnnotationTag(content, annotationId, updates) {
       const cardAttr = buildCardAttrs(merged);
       newAttrs += cardAttr;
     }
-    let newInnerContent = innerContent;
-    if (updates.rubyTexts !== void 0) {
-      const plainText = removeRubyById(innerContent, annotationId);
-      newInnerContent = buildAnnotatedText(plainText, annotationId, updates.rubyTexts);
-    }
-    result = result.slice(0, r.start) + `<mark ${newAttrs}>${newInnerContent}</mark>` + result.slice(r.end);
+    result = result.slice(0, r.start) + `<mark ${newAttrs}>${innerContent}</mark>` + result.slice(r.end);
   }
   return result;
 }
@@ -1315,7 +1184,6 @@ function insertCrossBlockAnnotation(content, annotation) {
     return { content, id: generateId(), blockCount: 0 };
   }
   const id = generateId();
-  const blockRubyMap = distributeRubyTexts(segments, annotation.rubyTexts);
   const sorted = [...segments].map((seg, idx) => ({ ...seg, originalIdx: idx })).sort((a, b) => b.lineStart - a.lineStart);
   let newContent = content;
   let successCount = 0;
@@ -1333,48 +1201,20 @@ function insertCrossBlockAnnotation(content, annotation) {
     const sourceSlice = newContent.substring(found.start, found.end);
     const needsRebuild = /<(?:mark|ruby|rt)\s[^>]*data-annotation-id|<\/mark>/i.test(sourceSlice);
     if (!needsRebuild) {
-      const localRuby = blockRubyMap.get(block.originalIdx);
-      const tag = buildMarkTag(id, sourceSlice, annotation.color, annotation.note, localRuby, void 0, void 0, true);
+      const tag = buildMarkTag(id, sourceSlice, annotation.color, annotation.note, void 0, void 0, true);
       newContent = newContent.substring(0, found.start) + tag + newContent.substring(found.end);
       successCount++;
     } else {
-      const localRuby = blockRubyMap.get(block.originalIdx);
       const result = rebuildOverlapRegion(newContent, found.start, found.end, id, {
         text: block.text,
         color: annotation.color,
-        note: annotation.note,
-        rubyTexts: localRuby
+        note: annotation.note
       });
       newContent = result.content;
       successCount++;
     }
   }
   return { content: newContent, id, blockCount: successCount };
-}
-function distributeRubyTexts(blocks, rubyTexts) {
-  const result = /* @__PURE__ */ new Map();
-  if (!rubyTexts || rubyTexts.length === 0) return result;
-  for (let i = 0; i < blocks.length; i++) {
-    const block = blocks[i];
-    const blockStart = block.fullTextOffset;
-    const blockEnd = blockStart + block.text.length;
-    const localRubies = [];
-    for (const ruby of rubyTexts) {
-      const rubyStart = ruby.startIndex;
-      const rubyEnd = rubyStart + ruby.length;
-      if (rubyStart >= blockStart && rubyEnd <= blockEnd) {
-        localRubies.push({
-          startIndex: rubyStart - blockStart,
-          length: ruby.length,
-          ruby: ruby.ruby
-        });
-      }
-    }
-    if (localRubies.length > 0) {
-      result.set(i, localRubies);
-    }
-  }
-  return result;
 }
 
 // node_modules/diff/libesm/diff/base.js
@@ -2119,7 +1959,6 @@ var zhCN = {
   all: "\u5168\u90E8",
   none: "\u65E0",
   noData: "\u6682\u65E0\u6807\u6CE8",
-  noRuby: "\u6682\u65E0\u6CE8\u97F3",
   noteContent: "\u6279\u6CE8\u5185\u5BB9",
   // main.ts — 功能区 & 命令
   ribbonTooltip: "\u6807\u6CE8\u6A21\u5F0F",
@@ -2153,10 +1992,6 @@ var zhCN = {
   settingsNoteEffectDouble: "\u53CC\u4E0B\u5212\u7EBF",
   settingsMaxNoteLength: "\u6279\u6CE8\u6700\u5927\u957F\u5EA6",
   settingsMaxNoteLengthDesc: "\u6279\u6CE8\u5185\u5BB9\u5141\u8BB8\u7684\u6700\u5927\u5B57\u7B26\u6570",
-  settingsRubyStyle: "\u6CE8\u97F3\u6837\u5F0F",
-  settingsRubyFontSize: "\u6CE8\u97F3\u5B57\u4F53\u5927\u5C0F",
-  settingsRubyFontSizeDesc: "\u4F8B\u5982 0.7em\u30010.6em",
-  settingsRubyColor: "\u6CE8\u97F3\u6587\u5B57\u989C\u8272",
   settingsAnnotationMode: "\u6807\u6CE8\u6A21\u5F0F",
   settingsDefaultViewMode: "\u9ED8\u8BA4\u89C6\u56FE\u6A21\u5F0F",
   settingsDefaultViewModeDesc: "\u6253\u5F00\u6807\u6CE8\u6A21\u5F0F\u65F6\u9ED8\u8BA4\u4F7F\u7528\u7684\u89C6\u56FE",
@@ -2169,15 +2004,7 @@ var zhCN = {
   menuSelectColor: "\u9009\u62E9\u989C\u8272\u7ACB\u5373\u6807\u6CE8",
   menuOrAddNote: "\u6216\u6DFB\u52A0\u6279\u6CE8",
   menuFullText: "\u5168\u6587\u6807\u6CE8",
-  menuRuby: "\u6CE8\u97F3",
-  menuRubySelectText: "\u5212\u9009\u9700\u8981\u6CE8\u97F3\u7684\u6587\u5B57\uFF1A",
-  menuRubyContent: "\u6CE8\u97F3\u5185\u5BB9\uFF1A",
-  menuRubyPlaceholder: "\u8F93\u5165\u6CE8\u97F3\u5185\u5BB9...",
-  menuRubyAdded: "\u5DF2\u6DFB\u52A0\u7684\u6CE8\u97F3\uFF1A",
   noticeCopied: "\u5DF2\u590D\u5236\u5230\u526A\u8D34\u677F",
-  noticeRubySelect: "\u8BF7\u5148\u5212\u9009\u9700\u8981\u6CE8\u97F3\u7684\u6587\u5B57",
-  noticeRubyInput: "\u8BF7\u8F93\u5165\u6CE8\u97F3\u5185\u5BB9",
-  noticeRubySelectAndInput: "\u8BF7\u5148\u5212\u9009\u9700\u8981\u6CE8\u97F3\u7684\u6587\u5B57\u5E76\u8F93\u5165\u6CE8\u97F3\u5185\u5BB9",
   noticeAnnotationAdded: "\u6807\u6CE8\u5DF2\u6DFB\u52A0",
   noticeAnnotationAndNoteAdded: "\u6807\u6CE8\u548C\u6279\u6CE8\u5DF2\u6DFB\u52A0",
   noticeTextNotFound: "\u672A\u80FD\u5728\u6587\u4EF6\u4E2D\u627E\u5230\u9009\u4E2D\u7684\u6587\u5B57",
@@ -2237,7 +2064,6 @@ var zhCN = {
   sidebarNoteCopied: "\u5DF2\u590D\u5236",
   sidebarNoteCopyRestore: "\u590D\u5236",
   sidebarNoteEmpty: "\uFF08\u65E0\u6279\u6CE8\uFF09",
-  sidebarRubySection: "\u6CE8\u97F3",
   sidebarOpenNote: "\u6253\u5F00",
   sidebarDeleteAnnotation: "\u5220\u9664",
   noticeAnnotationUpdated: "\u6807\u6CE8\u5DF2\u66F4\u65B0",
@@ -2362,7 +2188,6 @@ var en = {
   all: "All",
   none: "None",
   noData: "No annotations",
-  noRuby: "No ruby",
   noteContent: "Note",
   // main.ts — ribbon & commands
   ribbonTooltip: "Annotation Mode",
@@ -2396,10 +2221,6 @@ var en = {
   settingsNoteEffectDouble: "Double underline",
   settingsMaxNoteLength: "Max note length",
   settingsMaxNoteLengthDesc: "Maximum characters allowed for annotation notes",
-  settingsRubyStyle: "Ruby Style",
-  settingsRubyFontSize: "Ruby font size",
-  settingsRubyFontSizeDesc: "e.g. 0.7em, 0.6em",
-  settingsRubyColor: "Ruby text color",
   settingsAnnotationMode: "Annotation Mode",
   settingsDefaultViewMode: "Default view mode",
   settingsDefaultViewModeDesc: "Default view when opening annotation mode",
@@ -2412,15 +2233,7 @@ var en = {
   menuSelectColor: "Pick a color to annotate",
   menuOrAddNote: "Or add a note",
   menuFullText: "Full Text",
-  menuRuby: "Ruby",
-  menuRubySelectText: "Select text for ruby:",
-  menuRubyContent: "Ruby text:",
-  menuRubyPlaceholder: "Enter ruby text...",
-  menuRubyAdded: "Added ruby:",
   noticeCopied: "Copied to clipboard",
-  noticeRubySelect: "Please select the text for ruby first",
-  noticeRubyInput: "Please enter the ruby text",
-  noticeRubySelectAndInput: "Please select text for ruby and enter the ruby text",
   noticeAnnotationAdded: "Annotation added",
   noticeAnnotationAndNoteAdded: "Annotation and note added",
   noticeTextNotFound: "Could not find the selected text in the file",
@@ -2480,7 +2293,6 @@ var en = {
   sidebarNoteCopied: "Copied",
   sidebarNoteCopyRestore: "Copy",
   sidebarNoteEmpty: "(No note)",
-  sidebarRubySection: "Ruby",
   sidebarOpenNote: "Open",
   sidebarDeleteAnnotation: "Delete",
   noticeAnnotationUpdated: "Annotation updated",
@@ -2605,7 +2417,6 @@ function t() {
 }
 
 // src/ui/SelectionMenu.ts
-var RUBY_SELECTION_DEBOUNCE_MS = 300;
 var SelectionMenu = class {
   constructor(app, fileManager, getSettings) {
     this.app = app;
@@ -2624,19 +2435,10 @@ var SelectionMenu = class {
     // 会造成 replaceRange 双重执行（mark 嵌套）或文件路径重复插入
     this.creating = false;
     this.colorContainer = null;
-    this.rubyTextEnabled = false;
-    this.rubyTexts = [];
-    this.rubyTextInput = null;
-    this.rubyTextContainer = null;
-    this.rubyTextPreview = null;
-    this.selectedRubyRange = null;
-    this.updateRubyList = null;
     this.blockSegments = null;
     this.editorRange = null;
     // 移动端可视视口 resize 监听（软键盘弹出收缩视口时把菜单钳回可见范围）
     this.vvResizeHandler = null;
-    // 移动端注音预览划选监听的清理函数
-    this.rubyMobileSelectionCleanup = null;
     // 用户手动拖动过菜单后置位：updateSelection 不再把菜单拉回选区旁（用户可能
     // 特意把菜单挪开以便查看被选中的文字），show() 时重置
     this.menuManuallyMoved = false;
@@ -2656,9 +2458,6 @@ var SelectionMenu = class {
     this.onAddCallback = params.onAdd;
     this.selectedColor = this.getSettings().defaultColor;
     this.pendingNote = "";
-    this.rubyTexts = [];
-    this.rubyTextEnabled = false;
-    this.selectedRubyRange = null;
     this.blockSegments = (_a = params.blockSegments) != null ? _a : null;
     this.editorRange = (_b = params.editorRange) != null ? _b : null;
     this.menuManuallyMoved = false;
@@ -2697,7 +2496,7 @@ var SelectionMenu = class {
         this.selectedColor = c;
         this.colorContainer.querySelectorAll(".annotation-color-dot").forEach((b) => b.removeClass("active"));
         btn.addClass("active");
-        if (c !== "none" && !this.pendingNote && this.rubyTexts.length === 0) {
+        if (c !== "none" && !this.pendingNote) {
           void this.createAnnotation("");
           return;
         }
@@ -2718,7 +2517,6 @@ var SelectionMenu = class {
       charCount.textContent = loc.charCount(len, maxLen);
       charCount.toggleClass("annotation-char-count-error", len > maxLen);
     });
-    this.buildRubySection(noteSection);
     const actionRow = this.menuEl.createDiv({ cls: "annotation-action-row" });
     const copyBtn = actionRow.createEl("button", {
       cls: "annotation-btn annotation-btn-secondary annotation-btn-small",
@@ -2861,183 +2659,18 @@ var SelectionMenu = class {
     handle.addEventListener("pointerup", endDrag);
     handle.addEventListener("pointercancel", endDrag);
   }
-  buildRubySection(parent) {
-    const loc = t();
-    const rubySection = parent.createDiv({ cls: "annotation-ruby-section" });
-    const rubyRow = rubySection.createDiv({ cls: "annotation-ruby-row" });
-    const rubyCheckbox = rubyRow.createEl("input", {
-      type: "checkbox",
-      cls: "annotation-ruby-checkbox"
-    });
-    rubyCheckbox.checked = this.rubyTextEnabled;
-    rubyCheckbox.addEventListener("change", () => {
-      var _a;
-      this.rubyTextEnabled = rubyCheckbox.checked;
-      if (this.rubyTextEnabled) {
-        this.rubyTextContainer.setCssStyles({ display: "block" });
-        this.rubyTextInput.focus();
-        window.requestAnimationFrame(() => this.adjustMenuPosition());
-      } else {
-        this.rubyTextContainer.setCssStyles({ display: "none" });
-        this.rubyTexts = [];
-        (_a = this.updateRubyList) == null ? void 0 : _a.call(this);
-      }
-    });
-    rubyRow.createEl("label", { text: loc.menuRuby });
-    this.rubyTextContainer = rubySection.createDiv({ cls: "annotation-ruby-input-container" });
-    if (!this.rubyTextEnabled) {
-      this.rubyTextContainer.setCssStyles({ display: "none" });
-    }
-    const rubyPreview = this.rubyTextContainer.createDiv({ cls: "annotation-ruby-preview" });
-    rubyPreview.createEl("label", { text: loc.menuRubySelectText });
-    this.rubyTextPreview = rubyPreview.createDiv({
-      cls: "annotation-ruby-text-preview",
-      text: this.selectedText
-    });
-    this.rubyTextPreview.setAttribute("data-selected-text", this.selectedText);
-    this.rubyTextPreview.addEventListener("mouseup", (e) => {
-      e.stopPropagation();
-      window.setTimeout(() => this.captureRubyPreviewSelection(), 10);
-    });
-    if (import_obsidian5.Platform.isMobile) {
-      let timer = null;
-      const handler = () => {
-        if (timer !== null) window.clearTimeout(timer);
-        timer = window.setTimeout(() => {
-          timer = null;
-          this.captureRubyPreviewSelection();
-        }, RUBY_SELECTION_DEBOUNCE_MS);
-      };
-      activeDocument.addEventListener("selectionchange", handler);
-      this.rubyMobileSelectionCleanup = () => {
-        if (timer !== null) window.clearTimeout(timer);
-        activeDocument.removeEventListener("selectionchange", handler);
-      };
-    }
-    const rubyInputRow = this.rubyTextContainer.createDiv({ cls: "annotation-ruby-input-row" });
-    rubyInputRow.createEl("label", { text: loc.menuRubyContent });
-    this.rubyTextInput = rubyInputRow.createEl("input", {
-      type: "text",
-      cls: "annotation-ruby-input",
-      placeholder: loc.menuRubyPlaceholder
-    });
-    this.rubyTextInput.addEventListener("focus", () => {
-      if (this.selectedRubyRange) {
-        const sel = window.getSelection();
-        if (sel) {
-          const textNode = this.rubyTextPreview.firstChild;
-          if (textNode) {
-            const range = activeDocument.createRange();
-            range.setStart(textNode, this.selectedRubyRange.start);
-            range.setEnd(textNode, this.selectedRubyRange.end);
-            sel.removeAllRanges();
-            sel.addRange(range);
-          }
-        }
-      }
-    });
-    const addRubyBtn = rubyInputRow.createEl("button", {
-      text: loc.add,
-      cls: "annotation-btn annotation-btn-small"
-    });
-    addRubyBtn.addEventListener("click", () => this.addRuby());
-    const rubyListContainer = this.rubyTextContainer.createDiv({ cls: "annotation-ruby-list-container" });
-    rubyListContainer.createEl("label", { text: loc.menuRubyAdded });
-    const rubyList = rubyListContainer.createDiv({ cls: "annotation-ruby-list" });
-    this.updateRubyList = () => {
-      rubyList.empty();
-      if (this.rubyTexts.length === 0) {
-        rubyList.createDiv({ text: loc.noRuby, cls: "annotation-ruby-empty" });
-      } else {
-        this.rubyTexts.forEach((ruby, index) => {
-          const item = rubyList.createDiv({ cls: "annotation-ruby-item" });
-          item.createSpan({
-            text: `${this.selectedText.substring(ruby.startIndex, ruby.startIndex + ruby.length)} \u2192 ${ruby.ruby}`,
-            cls: "annotation-ruby-item-text"
-          });
-          const deleteBtn = item.createEl("button", {
-            text: loc.close,
-            cls: "annotation-ruby-item-delete"
-          });
-          deleteBtn.addEventListener("click", (e) => {
-            var _a;
-            e.stopPropagation();
-            this.rubyTexts.splice(index, 1);
-            (_a = this.updateRubyList) == null ? void 0 : _a.call(this);
-          });
-        });
-      }
-    };
-    this.updateRubyList();
-  }
-  // 记录落在注音预览文本内的选区（桌面 mouseup 与移动端 selectionchange 共用）
-  captureRubyPreviewSelection() {
-    if (!this.rubyTextPreview || !this.menuEl) return;
-    const sel = window.getSelection();
-    if (!sel || sel.isCollapsed || sel.rangeCount === 0) return;
-    const range = sel.getRangeAt(0);
-    if (!this.rubyTextPreview.contains(range.startContainer) || !this.rubyTextPreview.contains(range.endContainer)) {
-      return;
-    }
-    const offset = calculateRangeOffsetInElement(range, this.rubyTextPreview);
-    if (offset) {
-      this.selectedRubyRange = { start: offset.start, end: offset.end };
-    }
-  }
-  addRuby() {
-    var _a, _b;
-    const loc = t();
-    const sel = window.getSelection();
-    let selectedRubyText = "";
-    let rubyStart = 0;
-    if (sel && !sel.isCollapsed) {
-      const range = sel.getRangeAt(0);
-      const preview = this.rubyTextPreview;
-      const insidePreview = !!preview && preview.contains(range.startContainer) && preview.contains(range.endContainer);
-      if (insidePreview) {
-        selectedRubyText = sel.toString();
-        const offset = calculateRangeOffsetInElement(range, preview);
-        if (offset) rubyStart = offset.start;
-      }
-    }
-    if (!selectedRubyText && this.selectedRubyRange) {
-      selectedRubyText = this.selectedText.substring(
-        this.selectedRubyRange.start,
-        this.selectedRubyRange.end
-      );
-      rubyStart = this.selectedRubyRange.start;
-    }
-    const rubyValue = this.rubyTextInput.value.trim();
-    if (selectedRubyText && rubyValue) {
-      this.rubyTexts.push({ startIndex: rubyStart, length: selectedRubyText.length, ruby: rubyValue });
-      this.rubyTextInput.value = "";
-      this.selectedRubyRange = null;
-      sel == null ? void 0 : sel.removeAllRanges();
-      (_a = this.updateRubyList) == null ? void 0 : _a.call(this);
-    } else if (!selectedRubyText && this.selectedText.length === 1 && rubyValue) {
-      this.rubyTexts.push({ startIndex: 0, length: 1, ruby: rubyValue });
-      this.rubyTextInput.value = "";
-      this.selectedRubyRange = null;
-      (_b = this.updateRubyList) == null ? void 0 : _b.call(this);
-    } else if (!selectedRubyText) {
-      new import_obsidian5.Notice(loc.noticeRubySelect);
-    } else {
-      new import_obsidian5.Notice(loc.noticeRubyInput);
-    }
-  }
   async createAnnotation(note, isFullText = false) {
     var _a, _b, _c, _d;
     if (!this.currentNotePath || this.creating) return;
     const loc = t();
     this.creating = true;
     try {
-      const rubyTexts = !isFullText && this.rubyTextEnabled && this.rubyTexts.length > 0 ? this.rubyTexts : void 0;
       if (this.editorRange && !isFullText && !(this.blockSegments && this.blockSegments.length > 0)) {
         const view = (_a = this.app) == null ? void 0 : _a.workspace.getActiveViewOfType(import_obsidian5.MarkdownView);
         const expectedAnnotationPath = (0, import_obsidian5.normalizePath)(this.fileManager.getAnnotationFilePath(this.currentNotePath));
         if (view && ((_b = view.file) == null ? void 0 : _b.path) === expectedAnnotationPath) {
           const id = generateId();
-          const markTag = buildMarkTag(id, this.selectedText, this.selectedColor, note || void 0, rubyTexts);
+          const markTag = buildMarkTag(id, this.selectedText, this.selectedColor, note || void 0);
           view.editor.replaceRange(markTag, this.editorRange.from, this.editorRange.to);
           const cm = view.editor.cm;
           const cursorPos = cm.state.selection.main.head;
@@ -3050,7 +2683,7 @@ var SelectionMenu = class {
           await this.fileManager.writeAnnotationFile(this.currentNotePath, newContent);
           (_c = window.getSelection()) == null ? void 0 : _c.removeAllRanges();
           this.hide(true);
-          new import_obsidian5.Notice(note || rubyTexts ? loc.noticeAnnotationAndNoteAdded : loc.noticeAnnotationAdded);
+          new import_obsidian5.Notice(note ? loc.noticeAnnotationAndNoteAdded : loc.noticeAnnotationAdded);
           return;
         }
       }
@@ -3067,7 +2700,6 @@ var SelectionMenu = class {
           text: this.selectedText,
           color: this.selectedColor,
           note: note || void 0,
-          rubyTexts,
           blockSegments: this.blockSegments
         });
       } else {
@@ -3075,7 +2707,6 @@ var SelectionMenu = class {
           text: this.selectedText,
           color: this.selectedColor,
           note: note || void 0,
-          rubyTexts,
           contextBefore: this.contextBefore,
           contextAfter: this.contextAfter,
           startLine: this.startLine,
@@ -3093,7 +2724,7 @@ var SelectionMenu = class {
         if (isFullText) {
           new import_obsidian5.Notice(loc.fullTextAnnotation(result.positions.length));
         } else {
-          new import_obsidian5.Notice(note || rubyTexts ? loc.noticeAnnotationAndNoteAdded : loc.noticeAnnotationAdded);
+          new import_obsidian5.Notice(note ? loc.noticeAnnotationAndNoteAdded : loc.noticeAnnotationAdded);
         }
       } else {
         new import_obsidian5.Notice(loc.noticeTextNotFound);
@@ -3110,13 +2741,11 @@ var SelectionMenu = class {
     }
   }
   hide(clearSelection = false) {
-    var _a, _b, _c, _d;
+    var _a, _b, _c;
     if (this.vvResizeHandler && window.visualViewport) {
       window.visualViewport.removeEventListener("resize", this.vvResizeHandler);
       this.vvResizeHandler = null;
     }
-    (_a = this.rubyMobileSelectionCleanup) == null ? void 0 : _a.call(this);
-    this.rubyMobileSelectionCleanup = null;
     if (this.menuEl) {
       this.menuEl.remove();
       this.menuEl = null;
@@ -3124,12 +2753,12 @@ var SelectionMenu = class {
     clearSelectionHighlight();
     if (clearSelection) {
       if (import_obsidian5.Platform.isMobile) {
-        (_b = activeDocument.getSelection()) == null ? void 0 : _b.removeAllRanges();
+        (_a = activeDocument.getSelection()) == null ? void 0 : _a.removeAllRanges();
       }
       const view2 = this.app.workspace.getActiveViewOfType(import_obsidian5.MarkdownView);
-      if (this.currentNotePath && ((_c = view2 == null ? void 0 : view2.file) == null ? void 0 : _c.path)) {
+      if (this.currentNotePath && ((_b = view2 == null ? void 0 : view2.file) == null ? void 0 : _b.path)) {
         const expected = (0, import_obsidian5.normalizePath)(this.fileManager.getAnnotationFilePath(this.currentNotePath));
-        if (view2.file.path === expected && ((_d = view2.getMode) == null ? void 0 : _d.call(view2)) === "source") {
+        if (view2.file.path === expected && ((_c = view2.getMode) == null ? void 0 : _c.call(view2)) === "source") {
           const cm = view2.editor.cm;
           if (cm) {
             cm.dispatch({ selection: { anchor: cm.state.selection.main.head } });
@@ -3150,9 +2779,8 @@ var SelectionMenu = class {
   // 移动端：菜单打开期间拖动选择手柄 / 二次划选后，原地更新待标注内容。
   // 只替换选区相关状态（文本预览、选区参数、克隆高亮、菜单位置）；
   // 已输入的批注（noteInput/pendingNote）与所选颜色保留；
-  // 注音数据锚定旧选区的字符偏移，随选区变化作废重置（注音开关勾选态保留）
   updateSelection(params) {
-    var _a, _b, _c;
+    var _a, _b;
     if (!this.menuEl) return;
     this.selectedText = params.selectedText;
     this.contextBefore = params.contextBefore;
@@ -3166,13 +2794,6 @@ var SelectionMenu = class {
     if (this.textPreviewSpan) {
       this.textPreviewSpan.textContent = `"${previewText}"`;
     }
-    this.rubyTexts = [];
-    this.selectedRubyRange = null;
-    if (this.rubyTextPreview) {
-      this.rubyTextPreview.textContent = this.selectedText;
-      this.rubyTextPreview.setAttribute("data-selected-text", this.selectedText);
-    }
-    (_c = this.updateRubyList) == null ? void 0 : _c.call(this);
     const selection = activeDocument.getSelection();
     if (selection && selection.rangeCount > 0 && !selection.isCollapsed) {
       showSelectionHighlight(selection.getRangeAt(0).cloneRange());
@@ -3213,9 +2834,6 @@ var SelectionMenu = class {
     this.onAddCallback = params.onAdd;
     this.selectedColor = params.color;
     this.pendingNote = "";
-    this.rubyTexts = [];
-    this.rubyTextEnabled = false;
-    this.selectedRubyRange = null;
     this.blockSegments = (_c = params.blockSegments) != null ? _c : null;
     this.editorRange = (_d = params.editorRange) != null ? _d : null;
     await this.createAnnotation("");
@@ -3239,20 +2857,10 @@ var EditNoteModal = class extends import_obsidian6.Modal {
   constructor(app, getSettings, params, onSave) {
     super(app);
     this.noteInput = null;
-    this.rubyTextEnabled = false;
-    this.rubyTexts = [];
-    this.rubyTextInput = null;
-    this.rubyTextContainer = null;
-    this.rubyTextPreview = null;
-    this.selectedRubyRange = null;
-    this.updateRubyList = null;
     this.getSettings = getSettings;
     this.annotationText = params.text;
     this.currentNote = params.note;
     this.currentColor = params.color;
-    this.currentRubyTexts = params.rubyTexts || [];
-    this.rubyTexts = [...this.currentRubyTexts];
-    this.rubyTextEnabled = this.rubyTexts.length > 0;
     this.onSave = onSave;
   }
   onOpen() {
@@ -3315,7 +2923,6 @@ var EditNoteModal = class extends import_obsidian6.Modal {
       charCount.textContent = loc.charCount(len, maxLen);
       charCount.toggleClass("annotation-char-count-error", len > maxLen);
     });
-    this.buildRubySection(contentEl);
     const buttonContainer = contentEl.createDiv({ cls: "annotation-modal-buttons" });
     buttonContainer.createEl("button", {
       text: loc.cancel,
@@ -3327,129 +2934,9 @@ var EditNoteModal = class extends import_obsidian6.Modal {
     }).addEventListener("click", () => {
       var _a, _b;
       const note = (_b = (_a = this.noteInput) == null ? void 0 : _a.value) != null ? _b : "";
-      const rubyTexts = this.rubyTextEnabled && this.rubyTexts.length > 0 ? this.rubyTexts : void 0;
-      void this.onSave(note, this.currentColor, rubyTexts);
+      void this.onSave(note, this.currentColor);
       this.close();
     });
-  }
-  buildRubySection(parent) {
-    const loc = t();
-    const rubySection = parent.createDiv({ cls: "annotation-ruby-section" });
-    const rubyRow = rubySection.createDiv({ cls: "annotation-ruby-row" });
-    const rubyCheckbox = rubyRow.createEl("input", {
-      type: "checkbox",
-      cls: "annotation-ruby-checkbox"
-    });
-    rubyCheckbox.checked = this.rubyTextEnabled;
-    rubyCheckbox.addEventListener("change", () => {
-      var _a;
-      this.rubyTextEnabled = rubyCheckbox.checked;
-      if (this.rubyTextEnabled) {
-        this.rubyTextContainer.setCssStyles({ display: "block" });
-        this.rubyTextInput.focus();
-      } else {
-        this.rubyTextContainer.setCssStyles({ display: "none" });
-        this.rubyTexts = [];
-        (_a = this.updateRubyList) == null ? void 0 : _a.call(this);
-      }
-    });
-    rubyRow.createEl("label", { text: loc.menuRuby });
-    this.rubyTextContainer = rubySection.createDiv({ cls: "annotation-ruby-input-container" });
-    this.rubyTextContainer.setCssStyles({ display: this.rubyTextEnabled ? "block" : "none" });
-    const rubyPreview = this.rubyTextContainer.createDiv({ cls: "annotation-ruby-preview" });
-    rubyPreview.createEl("label", { text: loc.menuRubySelectText });
-    this.rubyTextPreview = rubyPreview.createDiv({
-      cls: "annotation-ruby-text-preview",
-      text: this.annotationText
-    });
-    this.rubyTextPreview.addEventListener("mouseup", (e) => {
-      e.stopPropagation();
-      window.setTimeout(() => {
-        const sel = window.getSelection();
-        if (sel && !sel.isCollapsed) {
-          const range = sel.getRangeAt(0);
-          let start = 0;
-          const textNode = this.rubyTextPreview.firstChild;
-          if (textNode && range.startContainer === textNode) {
-            start = range.startOffset;
-          }
-          this.selectedRubyRange = {
-            start,
-            end: start + sel.toString().length
-          };
-        }
-      }, 10);
-    });
-    const rubyInputRow = this.rubyTextContainer.createDiv({ cls: "annotation-ruby-input-row" });
-    rubyInputRow.createEl("label", { text: loc.menuRubyContent });
-    this.rubyTextInput = rubyInputRow.createEl("input", {
-      type: "text",
-      cls: "annotation-ruby-input",
-      placeholder: loc.menuRubyPlaceholder
-    });
-    const addRubyBtn = rubyInputRow.createEl("button", {
-      text: loc.add,
-      cls: "annotation-btn annotation-btn-small"
-    });
-    addRubyBtn.addEventListener("click", () => {
-      var _a, _b;
-      const sel = window.getSelection();
-      let text = "";
-      let start = 0;
-      if (sel && !sel.isCollapsed) {
-        text = sel.toString();
-        const range = sel.getRangeAt(0);
-        const textNode = this.rubyTextPreview.firstChild;
-        if (textNode && range.startContainer === textNode) {
-          start = range.startOffset;
-        }
-      } else if (this.selectedRubyRange) {
-        text = this.annotationText.substring(
-          this.selectedRubyRange.start,
-          this.selectedRubyRange.end
-        );
-        start = this.selectedRubyRange.start;
-      }
-      const value = this.rubyTextInput.value.trim();
-      if (text && value) {
-        this.rubyTexts.push({ startIndex: start, length: text.length, ruby: value });
-        this.rubyTextInput.value = "";
-        this.selectedRubyRange = null;
-        sel == null ? void 0 : sel.removeAllRanges();
-        (_a = this.updateRubyList) == null ? void 0 : _a.call(this);
-      } else if (!text && this.annotationText.length === 1 && value) {
-        this.rubyTexts.push({ startIndex: 0, length: 1, ruby: value });
-        this.rubyTextInput.value = "";
-        (_b = this.updateRubyList) == null ? void 0 : _b.call(this);
-      } else {
-        new import_obsidian6.Notice(loc.noticeRubySelectAndInput);
-      }
-    });
-    const rubyListContainer = this.rubyTextContainer.createDiv({ cls: "annotation-ruby-list-container" });
-    rubyListContainer.createEl("label", { text: loc.menuRubyAdded });
-    const rubyList = rubyListContainer.createDiv({ cls: "annotation-ruby-list" });
-    this.updateRubyList = () => {
-      rubyList.empty();
-      if (this.rubyTexts.length === 0) {
-        rubyList.createDiv({ text: loc.noRuby, cls: "annotation-ruby-empty" });
-      } else {
-        this.rubyTexts.forEach((ruby, index) => {
-          const item = rubyList.createDiv({ cls: "annotation-ruby-item" });
-          item.createSpan({
-            text: `${this.annotationText.substring(ruby.startIndex, ruby.startIndex + ruby.length)} \u2192 ${ruby.ruby}`,
-            cls: "annotation-ruby-item-text"
-          });
-          const deleteBtn = item.createEl("button", { text: loc.close, cls: "annotation-ruby-item-delete" });
-          deleteBtn.addEventListener("click", (e) => {
-            var _a;
-            e.stopPropagation();
-            this.rubyTexts.splice(index, 1);
-            (_a = this.updateRubyList) == null ? void 0 : _a.call(this);
-          });
-        });
-      }
-    };
-    this.updateRubyList();
   }
   onClose() {
     this.contentEl.empty();
@@ -3675,9 +3162,7 @@ function scanAnnotationTags(text, offset, fullText) {
           colorIndex: tag.colorIndex || "3",
           hasNote: tag.hasNote || false,
           openFrom: tag.from,
-          openTo: tag.to,
-          rubies: [],
-          rubyStack: []
+          openTo: tag.to
         });
         break;
       }
@@ -3691,68 +3176,13 @@ function scanAnnotationTags(text, offset, fullText) {
           markOpenFrom: mark.openFrom,
           markOpenTo: mark.openTo,
           markCloseFrom: tag.from,
-          markCloseTo: tag.to,
-          rubies: mark.rubies
-        });
-        break;
-      }
-      case "ruby-open": {
-        const currentMark = markStack[markStack.length - 1];
-        if (!currentMark) break;
-        currentMark.rubyStack.push({
-          openFrom: tag.from,
-          openTo: tag.to,
-          baseTextTo: tag.to,
-          rtCloseTo: tag.from
-        });
-        break;
-      }
-      case "rt-open": {
-        const currentMark = markStack[markStack.length - 1];
-        if (!currentMark) break;
-        const currentRuby = currentMark.rubyStack[currentMark.rubyStack.length - 1];
-        if (!currentRuby) break;
-        currentRuby.baseTextTo = tag.from;
-        break;
-      }
-      case "rt-close": {
-        const currentMark = markStack[markStack.length - 1];
-        if (!currentMark) break;
-        const currentRuby = currentMark.rubyStack[currentMark.rubyStack.length - 1];
-        if (!currentRuby) break;
-        currentRuby.rtCloseTo = tag.to;
-        break;
-      }
-      case "ruby-close": {
-        const currentMark = markStack[markStack.length - 1];
-        if (!currentMark) break;
-        const currentRuby = currentMark.rubyStack.pop();
-        if (!currentRuby) break;
-        const rtText = fullText.substring(
-          // rt 开标签结束位置 = baseTextTo 后面紧跟着 <rt ...>，需要找到 rt 开标签的结束位置
-          // baseTextTo 是 <rt 开头的位置，需要跳过 <rt ...> 标签本身
-          // 通过搜索找到 > 来确定 rt 开标签结束
-          findRtOpenEnd(fullText, currentRuby.baseTextTo),
-          tag.from
-        );
-        currentMark.rubies.push({
-          rubyOpenFrom: currentRuby.openFrom,
-          rubyOpenTo: currentRuby.openTo,
-          baseTextTo: currentRuby.baseTextTo,
-          rtCloseTo: currentRuby.rtCloseTo,
-          rubyCloseFrom: tag.from,
-          rubyCloseTo: tag.to,
-          rtText
+          markCloseTo: tag.to
         });
         break;
       }
     }
   }
   return blocks;
-}
-function findRtOpenEnd(text, rtStartPos) {
-  const gtPos = text.indexOf(">", rtStartPos);
-  return gtPos >= 0 ? gtPos + 1 : rtStartPos;
 }
 function hasAnnotationTags(text) {
   return text.includes("data-annotation-id") && text.includes("<mark");
@@ -3784,7 +3214,6 @@ async function editAnnotationInEditor(view, fileManager, notePath, annotationId,
         plainText,
         action.color,
         action.note,
-        action.rubyTexts,
         void 0,
         action.isFullText,
         action.isCrossBlock
@@ -3854,7 +3283,6 @@ var AnnotationMenu = class {
             const edited = view ? await editAnnotationInEditor(view, this.fileManager, notePath, annotation.id, {
               color: c,
               note: annotation.note,
-              rubyTexts: annotation.rubyTexts,
               isFullText: annotation.isFullText,
               isCrossBlock: annotation.isCrossBlock
             }) : false;
@@ -3956,23 +3384,20 @@ var AnnotationMenu = class {
       {
         text: annotation.text,
         note: annotation.note,
-        color: annotation.color,
-        rubyTexts: annotation.rubyTexts
+        color: annotation.color
       },
-      async (note, color, rubyTexts) => {
+      async (note, color) => {
         const view = this.app.workspace.getActiveViewOfType(import_obsidian8.MarkdownView);
         const edited = view ? await editAnnotationInEditor(view, this.fileManager, notePath, annotation.id, {
           color,
           note,
-          rubyTexts,
           isFullText: annotation.isFullText,
           isCrossBlock: annotation.isCrossBlock
         }) : false;
         if (!edited) {
           await this.fileManager.updateAnnotation(notePath, annotation.id, {
             color,
-            note,
-            rubyTexts
+            note
           });
         }
         onUpdate();
@@ -4527,18 +3952,6 @@ var AnnotationSettingTab = class extends import_obsidian11.PluginSettingTab {
       },
       {
         type: "group",
-        heading: loc.settingsRubyStyle,
-        items: [
-          {
-            name: loc.settingsRubyFontSize,
-            desc: loc.settingsRubyFontSizeDesc,
-            control: { type: "text", key: "rubyFontSize", placeholder: "0.7em", defaultValue: "0.7em" }
-          },
-          { name: loc.settingsRubyColor, control: { type: "color", key: "rubyColor" } }
-        ]
-      },
-      {
-        type: "group",
         heading: loc.settingsAnnotationMode,
         items: [
           {
@@ -4614,7 +4027,7 @@ var AnnotationSettingTab = class extends import_obsidian11.PluginSettingTab {
   async setControlValue(key, value) {
     const settings = this.plugin.settings;
     settings[key] = value;
-    if (key.startsWith("color") || key === "rubyFontSize" || key === "rubyColor" || key === "noteEffect") {
+    if (key.startsWith("color") || key === "noteEffect") {
       this.plugin.updateDynamicStyles();
     }
     if (key.startsWith("colorLabel")) {
@@ -4651,23 +4064,6 @@ var AnnotationSettingTab = class extends import_obsidian11.PluginSettingTab {
       txt.onChange(async (v) => {
         const num = parseInt(v, 10);
         this.plugin.settings.maxNoteLength = isNaN(num) ? 500 : num;
-        await this.plugin.saveSettings();
-      });
-    });
-    new import_obsidian11.Setting(containerEl).setName(loc.settingsRubyStyle).setHeading();
-    new import_obsidian11.Setting(containerEl).setName(loc.settingsRubyFontSize).setDesc(loc.settingsRubyFontSizeDesc).addText((txt) => {
-      txt.setValue(this.plugin.settings.rubyFontSize);
-      txt.onChange(async (v) => {
-        this.plugin.settings.rubyFontSize = v || "0.7em";
-        this.plugin.updateDynamicStyles();
-        await this.plugin.saveSettings();
-      });
-    });
-    new import_obsidian11.Setting(containerEl).setName(loc.settingsRubyColor).addColorPicker((cp) => {
-      cp.setValue(this.plugin.settings.rubyColor);
-      cp.onChange(async (v) => {
-        this.plugin.settings.rubyColor = v;
-        this.plugin.updateDynamicStyles();
         await this.plugin.saveSettings();
       });
     });
@@ -5263,24 +4659,6 @@ function sortAnnotations(annotations, sortOption) {
   }
   return sorted;
 }
-function buildAnnotatedText2(text, rubyTexts) {
-  if (!rubyTexts || rubyTexts.length === 0) return text;
-  const sorted = [...rubyTexts].sort((a, b) => a.startIndex - b.startIndex);
-  let result = "";
-  let currentIndex = 0;
-  for (const ruby of sorted) {
-    if (ruby.startIndex > currentIndex) {
-      result += text.substring(currentIndex, ruby.startIndex);
-    }
-    const baseText = text.substring(ruby.startIndex, ruby.startIndex + ruby.length);
-    result += `<ruby>${baseText}<rt>${encodeAttr(ruby.ruby)}</rt></ruby>`;
-    currentIndex = ruby.startIndex + ruby.length;
-  }
-  if (currentIndex < text.length) {
-    result += text.substring(currentIndex);
-  }
-  return result;
-}
 function colorToCalloutType(color) {
   return `annotation-${color}`;
 }
@@ -5288,7 +4666,7 @@ function buildExportContent(annotations) {
   const blocks = [];
   for (const annotation of annotations) {
     const calloutType = colorToCalloutType(annotation.color);
-    const annotatedText = buildAnnotatedText2(annotation.text, annotation.rubyTexts);
+    const annotatedText = annotation.text;
     const flatText = annotatedText.replace(/\n/g, " ");
     const blockLines = [];
     blockLines.push(`> [!${calloutType}] note`);
@@ -6894,9 +6272,7 @@ async function importOldAnnotations(app, fileManager, pluginDir) {
           contextAfter: oldAnn.contextAfter,
           occurrence: occurrence != null ? occurrence : void 0
         };
-        if (oldAnn.rubyTexts && oldAnn.rubyTexts.length > 0) {
-          newAnnotation.rubyTexts = oldAnn.rubyTexts;
-        }
+        void oldAnn;
         const createdTimestamp = new Date(oldAnn.createdAt).getTime().toString();
         const importId = createdTimestamp + "-" + Math.random().toString(36).substring(2, 11);
         const insertResult = insertAnnotation(content, newAnnotation, importId);
@@ -7288,8 +6664,6 @@ var AnnotationPlugin = class extends import_obsidian19.Plugin {
       root.style.setProperty(`--annotation-accent-color${n}`, this.hexToRgba(hex, 0.8));
       root.style.setProperty(`--annotation-dot-color${n}`, hex);
     }
-    root.style.setProperty("--annotation-ruby-font-size", s.rubyFontSize);
-    root.style.setProperty("--annotation-ruby-color", s.rubyColor);
     activeDocument.body.dataset.noteEffect = s.noteEffect;
   }
   // ========== 标签页标题 ==========

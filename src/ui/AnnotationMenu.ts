@@ -88,7 +88,6 @@ export class AnnotationMenu {
             const edited = view ? await editAnnotationInEditor(view, this.fileManager, notePath, annotation.id, {
               color: c,
               note: annotation.note,
-              rubyTexts: annotation.rubyTexts,
               isFullText: annotation.isFullText,
               isCrossBlock: annotation.isCrossBlock,
             }) : false;
@@ -210,15 +209,13 @@ export class AnnotationMenu {
         text: annotation.text,
         note: annotation.note,
         color: annotation.color,
-        rubyTexts: annotation.rubyTexts,
       },
-      async (note, color, rubyTexts) => {
+      async (note, color) => {
         // 编辑模式：用 replaceRange 局部替换
         const view = this.app.workspace.getActiveViewOfType(MarkdownView);
         const edited = view ? await editAnnotationInEditor(view, this.fileManager, notePath, annotation.id, {
           color,
           note,
-          rubyTexts,
           isFullText: annotation.isFullText,
           isCrossBlock: annotation.isCrossBlock,
         }) : false;
@@ -226,7 +223,6 @@ export class AnnotationMenu {
           await this.fileManager.updateAnnotation(notePath, annotation.id, {
             color,
             note,
-            rubyTexts,
           });
         }
         onUpdate();

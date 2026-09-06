@@ -1,5 +1,5 @@
 import { MarkdownView } from "obsidian";
-import type { AnnotationColor, AnnotationRuby } from "../types";
+import type { AnnotationColor } from "../types";
 import { scanAnnotationTags } from "../view/annotationTagParser";
 import { buildMarkTag } from "../annotationFile/annotationSerializer";
 import { AnnotationFileManager } from "../annotationFile/AnnotationFileManager";
@@ -21,7 +21,6 @@ export async function editAnnotationInEditor(
 	action: 'delete' | {
 		color: AnnotationColor;
 		note?: string;
-		rubyTexts?: AnnotationRuby[];
 		isFullText?: boolean;
 		isCrossBlock?: boolean;
 	}
@@ -51,7 +50,7 @@ export async function editAnnotationInEditor(
 			const plainText = stripRubyTags(innerContent);
 			const newTag = buildMarkTag(
 				annotationId, plainText, action.color,
-				action.note, action.rubyTexts,
+				action.note,
 				undefined, action.isFullText, action.isCrossBlock
 			);
 			view.editor.replaceRange(newTag, from, to);

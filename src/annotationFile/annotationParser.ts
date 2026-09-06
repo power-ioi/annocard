@@ -1,4 +1,4 @@
-import type { AnnotationColor, AnnotationRuby, ParsedAnnotation } from "../types";
+import type { AnnotationColor, ParsedAnnotation } from "../types";
 import { decodeAttr } from "../utils/helpers";
 
 // 从属性字符串中提取指定属性值
@@ -112,39 +112,6 @@ export function findMatchingCloseMark(content: string, openTagEnd: number): numb
   return -1;
 }
 
-// 从 <mark> 标签内容中解析属于指定标注的 <ruby> 子标签
-function parseRubyTags(content: string, parentAnnotationId: string): AnnotationRuby[] {
-  const rubies: AnnotationRuby[] = [];
-  const rubyRegex = new RegExp(
-    `<ruby\\s+[^>]*data-annotation-id="${parentAnnotationId}"[^>]*>([\\s\\S]*?)<\\/ruby>`, "g"
-  );
-  let match: RegExpExecArray | null;
-
-  while ((match = rubyRegex.exec(content)) !== null) {
-    const rubyContent = match[1]!;
-
-    const rtMatch = rubyContent.match(/<rt[^>]*data-annotation-id="[^"]*"[^>]*>([\s\S]*?)<\/rt>/);
-    const rtText = rtMatch ? rtMatch[1]! : "";
-
-    const baseTextMatch = rubyContent.match(/^([\s\S]*?)<rt/);
-    const baseText = baseTextMatch ? baseTextMatch[1]! : "";
-
-    if (baseText && rtText) {
-      const beforeRuby = content.substring(0, match.index);
-      const plainBefore = stripRubyText(beforeRuby);
-
-      rubies.push({
-        startIndex: plainBefore.length,
-        length: baseText.length,
-        // 写入时经 encodeAttr 转义，读取端对称解码
-        ruby: decodeAttr(rtText),
-      });
-    }
-  }
-
-  return rubies;
-}
-
 // 解析标注文件中的所有标注（栈式解析器，支持嵌套）
 export function parseAnnotations(content: string): ParsedAnnotation[] {
   const segments: MarkSegment[] = [];
@@ -203,23 +170,6 @@ export function parseAnnotations(content: string): ParsedAnnotation[] {
       ? stripRubyText(first.content)
       : group.map(seg => stripRubyText(seg.content)).join("");
 
-    const rubyTexts: AnnotationRuby[] = [];
-    if (isFullText) {
-      rubyTexts.push(...parseRubyTags(first.content, id));
-    } else {
-      let offset = 0;
-      for (const seg of group) {
-        const segRubies = parseRubyTags(seg.content, id);
-        for (const r of segRubies) {
-          rubyTexts.push({
-            startIndex: offset + r.startIndex,
-            length: r.length,
-            ruby: r.ruby,
-          });
-        }
-        offset += stripRubyText(seg.content).length;
-      }
-    }
 
     const positions = group.map(seg => ({
       start: seg.startIndex,
@@ -234,7 +184,6 @@ export function parseAnnotations(content: string): ParsedAnnotation[] {
       color,
       note,
       text,
-      rubyTexts,
       positions,
       isFullText,
       isCrossBlock,

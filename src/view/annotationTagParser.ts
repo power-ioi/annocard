@@ -27,17 +27,6 @@ interface TagMatch {
 	hasNote?: boolean;
 }
 
-// 解析后的 ruby 元素
-export interface RubyElement {
-	rubyOpenFrom: number;
-	rubyOpenTo: number;
-	baseTextTo: number;
-	rtCloseTo: number;
-	rubyCloseFrom: number;
-	rubyCloseTo: number;
-	rtText: string;
-}
-
 // 解析后的完整标注块
 export interface AnnotationBlock {
 	id: string;
@@ -47,7 +36,6 @@ export interface AnnotationBlock {
 	markOpenTo: number;
 	markCloseFrom: number;
 	markCloseTo: number;
-	rubies: RubyElement[];
 }
 
 // 扫描文本中的所有标注标签
@@ -104,14 +92,6 @@ function scanTags(text: string, offset: number): TagMatch[] {
 	return tags;
 }
 
-// ruby 标签栈中的临时项
-interface RubyStackItem {
-	openFrom: number;
-	openTo: number;
-	baseTextTo: number;
-	rtCloseTo: number;
-}
-
 // 从标签列表构建标注块（用栈配对标签）
 // fullText: 完整文档文本，用于提取 rt 标签内的注音文字
 export function scanAnnotationTags(text: string, offset: number, fullText: string): AnnotationBlock[] {
@@ -125,8 +105,6 @@ export function scanAnnotationTags(text: string, offset: number, fullText: strin
 		hasNote: boolean;
 		openFrom: number;
 		openTo: number;
-		rubies: RubyElement[];
-		rubyStack: RubyStackItem[];
 	}> = [];
 
 	for (const tag of tags) {
@@ -138,8 +116,6 @@ export function scanAnnotationTags(text: string, offset: number, fullText: strin
 					hasNote: tag.hasNote || false,
 					openFrom: tag.from,
 					openTo: tag.to,
-					rubies: [],
-					rubyStack: [],
 				});
 				break;
 			}
@@ -154,60 +130,6 @@ export function scanAnnotationTags(text: string, offset: number, fullText: strin
 					markOpenTo: mark.openTo,
 					markCloseFrom: tag.from,
 					markCloseTo: tag.to,
-					rubies: mark.rubies,
-				});
-				break;
-			}
-			case "ruby-open": {
-				const currentMark = markStack[markStack.length - 1];
-				if (!currentMark) break;
-				currentMark.rubyStack.push({
-					openFrom: tag.from,
-					openTo: tag.to,
-					baseTextTo: tag.to,
-					rtCloseTo: tag.from,
-				});
-				break;
-			}
-			case "rt-open": {
-				const currentMark = markStack[markStack.length - 1];
-				if (!currentMark) break;
-				const currentRuby = currentMark.rubyStack[currentMark.rubyStack.length - 1];
-				if (!currentRuby) break;
-				currentRuby.baseTextTo = tag.from;
-				break;
-			}
-			case "rt-close": {
-				const currentMark = markStack[markStack.length - 1];
-				if (!currentMark) break;
-				const currentRuby = currentMark.rubyStack[currentMark.rubyStack.length - 1];
-				if (!currentRuby) break;
-				currentRuby.rtCloseTo = tag.to;
-				break;
-			}
-			case "ruby-close": {
-				const currentMark = markStack[markStack.length - 1];
-				if (!currentMark) break;
-				const currentRuby = currentMark.rubyStack.pop();
-				if (!currentRuby) break;
-
-				// 从完整文档文本中提取 rt 标签内的注音文字
-				const rtText = fullText.substring(
-					// rt 开标签结束位置 = baseTextTo 后面紧跟着 <rt ...>，需要找到 rt 开标签的结束位置
-					// baseTextTo 是 <rt 开头的位置，需要跳过 <rt ...> 标签本身
-					// 通过搜索找到 > 来确定 rt 开标签结束
-					findRtOpenEnd(fullText, currentRuby.baseTextTo),
-					tag.from
-				);
-
-				currentMark.rubies.push({
-					rubyOpenFrom: currentRuby.openFrom,
-					rubyOpenTo: currentRuby.openTo,
-					baseTextTo: currentRuby.baseTextTo,
-					rtCloseTo: currentRuby.rtCloseTo,
-					rubyCloseFrom: tag.from,
-					rubyCloseTo: tag.to,
-					rtText,
 				});
 				break;
 			}

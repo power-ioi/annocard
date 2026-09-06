@@ -1,5 +1,4 @@
-import type { AnnotationColor, AnnotationRuby, ParsedAnnotation } from "../types";
-import { encodeAttr } from "./helpers";
+import type { AnnotationColor, ParsedAnnotation } from "../types";
 
 // 注意：不含 "by-note"——按笔记分组是"全部笔记"侧边栏模式的语义，
 // 导出场景只面向单文件，这里若保留该分支只会与 position-asc 静默重合（语义漂移）。
@@ -33,28 +32,7 @@ export function sortAnnotations(annotations: ParsedAnnotation[], sortOption: Sor
 }
 
 // 构建带注音的标注文本
-export function buildAnnotatedText(text: string, rubyTexts: AnnotationRuby[]): string {
-  if (!rubyTexts || rubyTexts.length === 0) return text;
 
-  const sorted = [...rubyTexts].sort((a, b) => a.startIndex - b.startIndex);
-  let result = "";
-  let currentIndex = 0;
-
-  for (const ruby of sorted) {
-    if (ruby.startIndex > currentIndex) {
-      result += text.substring(currentIndex, ruby.startIndex);
-    }
-    const baseText = text.substring(ruby.startIndex, ruby.startIndex + ruby.length);
-    result += `<ruby>${baseText}<rt>${encodeAttr(ruby.ruby)}</rt></ruby>`;
-    currentIndex = ruby.startIndex + ruby.length;
-  }
-
-  if (currentIndex < text.length) {
-    result += text.substring(currentIndex);
-  }
-
-  return result;
-}
 
 // 颜色 → callout 类型名
 function colorToCalloutType(color: AnnotationColor): string {
@@ -64,7 +42,7 @@ function colorToCalloutType(color: AnnotationColor): string {
 // 生成完整导出内容
 // 格式：
 // > [!annotation-{color}] note
-// > > 标注文本（含 ruby）
+// > > 标注文本
 // >
 // >
 // > 批注内容
@@ -73,7 +51,7 @@ export function buildExportContent(annotations: ParsedAnnotation[]): string {
 
   for (const annotation of annotations) {
     const calloutType = colorToCalloutType(annotation.color);
-    const annotatedText = buildAnnotatedText(annotation.text, annotation.rubyTexts);
+    const annotatedText = annotation.text;
     const flatText = annotatedText.replace(/\n/g, " ");
 
     const blockLines: string[] = [];

@@ -104,19 +104,7 @@ export class AnnotationSettingTab extends PluginSettingTab {
           },
         ],
       },
-      {
-        type: "group",
-        heading: loc.settingsRubyStyle,
-        items: [
-          {
-            name: loc.settingsRubyFontSize,
-            desc: loc.settingsRubyFontSizeDesc,
-            control: { type: "text", key: "rubyFontSize", placeholder: "0.7em", defaultValue: "0.7em" },
-          },
-          { name: loc.settingsRubyColor, control: { type: "color", key: "rubyColor" } },
-        ],
-      },
-      {
+            {
         type: "group",
         heading: loc.settingsAnnotationMode,
         items: [
@@ -195,7 +183,7 @@ export class AnnotationSettingTab extends PluginSettingTab {
     const settings = this.plugin.settings as unknown as Record<string, unknown>;
     settings[key] = value;
 
-    if (key.startsWith("color") || key === "rubyFontSize" || key === "rubyColor" || key === "noteEffect") {
+    if (key.startsWith("color") || key === "noteEffect") {
       this.plugin.updateDynamicStyles();
     }
     if (key.startsWith("colorLabel")) {
@@ -252,30 +240,6 @@ export class AnnotationSettingTab extends PluginSettingTab {
         });
       });
 
-    new Setting(containerEl).setName(loc.settingsRubyStyle).setHeading();
-
-    new Setting(containerEl)
-      .setName(loc.settingsRubyFontSize)
-      .setDesc(loc.settingsRubyFontSizeDesc)
-      .addText((txt) => {
-        txt.setValue(this.plugin.settings.rubyFontSize);
-        txt.onChange(async (v) => {
-          this.plugin.settings.rubyFontSize = v || "0.7em";
-          this.plugin.updateDynamicStyles();
-          await this.plugin.saveSettings();
-        });
-      });
-
-    new Setting(containerEl)
-      .setName(loc.settingsRubyColor)
-      .addColorPicker((cp) => {
-        cp.setValue(this.plugin.settings.rubyColor);
-        cp.onChange(async (v) => {
-          this.plugin.settings.rubyColor = v;
-          this.plugin.updateDynamicStyles();
-          await this.plugin.saveSettings();
-        });
-      });
 
     new Setting(containerEl).setName(loc.settingsAnnotationMode).setHeading();
 

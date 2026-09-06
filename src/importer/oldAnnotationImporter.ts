@@ -206,10 +206,8 @@ export async function importOldAnnotations(
           occurrence: occurrence ?? undefined,
         };
 
-        // 如果有注音，转换格式
-        if (oldAnn.rubyTexts && oldAnn.rubyTexts.length > 0) {
-          newAnnotation.rubyTexts = oldAnn.rubyTexts;
-        }
+        // 如果有注音，直接丢弃（注音功能已移除）
+        void oldAnn;
 
         const createdTimestamp = new Date(oldAnn.createdAt).getTime().toString();
         const importId = createdTimestamp + "-" + Math.random().toString(36).substring(2, 11);

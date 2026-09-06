@@ -340,9 +340,7 @@ export default class AnnotationPlugin extends Plugin {
       root.style.setProperty(`--annotation-dot-color${n}`, hex);
     }
 
-    // 注音样式
-    root.style.setProperty("--annotation-ruby-font-size", s.rubyFontSize);
-    root.style.setProperty("--annotation-ruby-color", s.rubyColor);
+    // 标注模式
 
     // 设置批注效果
     activeDocument.body.dataset.noteEffect = s.noteEffect;

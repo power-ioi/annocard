@@ -16,7 +16,6 @@ export interface LocaleDict {
   all: string;
   none: string;
   noData: string;
-  noRuby: string;
   noteContent: string;
 
   // main.ts — 功能区 & 命令
@@ -53,10 +52,6 @@ export interface LocaleDict {
   settingsNoteEffectDouble: string;
   settingsMaxNoteLength: string;
   settingsMaxNoteLengthDesc: string;
-  settingsRubyStyle: string;
-  settingsRubyFontSize: string;
-  settingsRubyFontSizeDesc: string;
-  settingsRubyColor: string;
   settingsAnnotationMode: string;
   settingsDefaultViewMode: string;
   settingsDefaultViewModeDesc: string;
@@ -70,15 +65,7 @@ export interface LocaleDict {
   menuSelectColor: string;
   menuOrAddNote: string;
   menuFullText: string;
-  menuRuby: string;
-  menuRubySelectText: string;
-  menuRubyContent: string;
-  menuRubyPlaceholder: string;
-  menuRubyAdded: string;
   noticeCopied: string;
-  noticeRubySelect: string;
-  noticeRubyInput: string;
-  noticeRubySelectAndInput: string;
   noticeAnnotationAdded: string;
   noticeAnnotationAndNoteAdded: string;
   noticeTextNotFound: string;
@@ -142,7 +129,6 @@ export interface LocaleDict {
   sidebarNoteCopied: string;
   sidebarNoteCopyRestore: string;
   sidebarNoteEmpty: string;
-  sidebarRubySection: string;
   sidebarOpenNote: string;
   sidebarDeleteAnnotation: string;
   noticeAnnotationUpdated: string;

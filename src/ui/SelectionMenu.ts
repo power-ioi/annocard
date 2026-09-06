@@ -1,17 +1,14 @@
-import { App, MarkdownView, Notice, Platform, normalizePath, type EditorPosition } from "obsidian";
+﻿import { App, MarkdownView, Notice, Platform, normalizePath, type EditorPosition } from "obsidian";
 import { EditorView } from "@codemirror/view";
-import type { AnnotationColor, AnnotationRuby, BlockSegment, AnnotationPluginSettings } from "../types";
+import type { AnnotationColor, BlockSegment, AnnotationPluginSettings } from "../types";
 import { DEFAULT_SETTINGS } from "../types";
 import { COLOR_CLASSES, getActiveColors } from "../constants";
 import { AnnotationFileManager } from "../annotationFile/AnnotationFileManager";
-import { calculateRangeOffsetInElement, generateId } from "../utils/helpers";
+import { generateId } from "../utils/helpers";
 import { buildMarkTag, PartialWikiLinkError } from "../annotationFile/annotationSerializer";
 import { restoreEditorFocus } from "../utils/focusManager";
 import { showSelectionHighlight, clearSelectionHighlight } from "../utils/selectionHighlight";
 import { t } from "../i18n";
-
-// 移动端注音预览划选的选区稳定防抖时长（ms）
-const RUBY_SELECTION_DEBOUNCE_MS = 300;
 
 // 添加标注的浮动菜单
 export class SelectionMenu {
@@ -35,19 +32,10 @@ export class SelectionMenu {
   // 会造成 replaceRange 双重执行（mark 嵌套）或文件路径重复插入
   private creating = false;
   private colorContainer: HTMLElement | null = null;
-  private rubyTextEnabled = false;
-  private rubyTexts: AnnotationRuby[] = [];
-  private rubyTextInput: HTMLInputElement | null = null;
-  private rubyTextContainer: HTMLElement | null = null;
-  private rubyTextPreview: HTMLElement | null = null;
-  private selectedRubyRange: { start: number; end: number } | null = null;
-  private updateRubyList: (() => void) | null = null;
   private blockSegments: BlockSegment[] | null = null;
   private editorRange: { from: EditorPosition; to: EditorPosition } | null = null;
   // 移动端可视视口 resize 监听（软键盘弹出收缩视口时把菜单钳回可见范围）
   private vvResizeHandler: (() => void) | null = null;
-  // 移动端注音预览划选监听的清理函数
-  private rubyMobileSelectionCleanup: (() => void) | null = null;
   // 用户手动拖动过菜单后置位：updateSelection 不再把菜单拉回选区旁（用户可能
   // 特意把菜单挪开以便查看被选中的文字），show() 时重置
   private menuManuallyMoved = false;
@@ -83,9 +71,6 @@ export class SelectionMenu {
     this.onAddCallback = params.onAdd;
     this.selectedColor = this.getSettings().defaultColor;
     this.pendingNote = "";
-    this.rubyTexts = [];
-    this.rubyTextEnabled = false;
-    this.selectedRubyRange = null;
     this.blockSegments = params.blockSegments ?? null;
     this.editorRange = params.editorRange ?? null;
     this.menuManuallyMoved = false;
@@ -141,8 +126,8 @@ export class SelectionMenu {
           .forEach((b) => b.removeClass("active"));
         btn.addClass("active");
 
-        // 如果没批注也没注音，选色后直接标注
-        if (c !== "none" && !this.pendingNote && this.rubyTexts.length === 0) {
+        // 如果没批注，选色后直接标注
+        if (c !== "none" && !this.pendingNote) {
           void this.createAnnotation("");
           return;
         }
@@ -166,9 +151,6 @@ export class SelectionMenu {
       charCount.textContent = loc.charCount(len, maxLen);
       charCount.toggleClass("annotation-char-count-error", len > maxLen);
     });
-
-    // 注音区域
-    this.buildRubySection(noteSection);
 
     // 底部操作栏
     const actionRow = this.menuEl.createDiv({ cls: "annotation-action-row" });
@@ -347,210 +329,12 @@ export class SelectionMenu {
     handle.addEventListener("pointercancel", endDrag);
   }
 
-  private buildRubySection(parent: HTMLElement): void {
-    const loc = t();
-    const rubySection = parent.createDiv({ cls: "annotation-ruby-section" });
-    const rubyRow = rubySection.createDiv({ cls: "annotation-ruby-row" });
-    const rubyCheckbox = rubyRow.createEl("input", {
-      type: "checkbox",
-      cls: "annotation-ruby-checkbox",
-    });
-    rubyCheckbox.checked = this.rubyTextEnabled;
-    rubyCheckbox.addEventListener("change", () => {
-      this.rubyTextEnabled = rubyCheckbox.checked;
-      if (this.rubyTextEnabled) {
-        this.rubyTextContainer!.setCssStyles({ display: "block" });
-        this.rubyTextInput!.focus();
-        window.requestAnimationFrame(() => this.adjustMenuPosition());
-      } else {
-        this.rubyTextContainer!.setCssStyles({ display: "none" });
-        this.rubyTexts = [];
-        this.updateRubyList?.();
-      }
-    });
-    rubyRow.createEl("label", { text: loc.menuRuby });
-
-    this.rubyTextContainer = rubySection.createDiv({ cls: "annotation-ruby-input-container" });
-    if (!this.rubyTextEnabled) {
-      this.rubyTextContainer.setCssStyles({ display: "none" });
-    }
-
-    // 注音预览
-    const rubyPreview = this.rubyTextContainer.createDiv({ cls: "annotation-ruby-preview" });
-    rubyPreview.createEl("label", { text: loc.menuRubySelectText });
-    this.rubyTextPreview = rubyPreview.createDiv({
-      cls: "annotation-ruby-text-preview",
-      text: this.selectedText,
-    });
-    this.rubyTextPreview.setAttribute("data-selected-text", this.selectedText);
-
-    // 监听预览区域的选区
-    this.rubyTextPreview.addEventListener("mouseup", (e) => {
-      e.stopPropagation();
-      window.setTimeout(() => this.captureRubyPreviewSelection(), 10);
-    });
-
-    if (Platform.isMobile) {
-      // 移动端长按划选预览文字不会触发 mouseup：菜单打开期间挂防抖 selectionchange，
-      // 选区稳定且仍落在预览内时记录注音范围（main.ts 全局入口因 isOpened() 会短路，不会重建菜单）
-      let timer: number | null = null;
-      const handler = () => {
-        if (timer !== null) window.clearTimeout(timer);
-        timer = window.setTimeout(() => {
-          timer = null;
-          this.captureRubyPreviewSelection();
-        }, RUBY_SELECTION_DEBOUNCE_MS);
-      };
-      activeDocument.addEventListener("selectionchange", handler);
-      this.rubyMobileSelectionCleanup = () => {
-        if (timer !== null) window.clearTimeout(timer);
-        activeDocument.removeEventListener("selectionchange", handler);
-      };
-    }
-
-    // 注音输入
-    const rubyInputRow = this.rubyTextContainer.createDiv({ cls: "annotation-ruby-input-row" });
-    rubyInputRow.createEl("label", { text: loc.menuRubyContent });
-    this.rubyTextInput = rubyInputRow.createEl("input", {
-      type: "text",
-      cls: "annotation-ruby-input",
-      placeholder: loc.menuRubyPlaceholder,
-    });
-
-    // 聚焦时恢复选区
-    this.rubyTextInput.addEventListener("focus", () => {
-      if (this.selectedRubyRange) {
-        const sel = window.getSelection();
-        if (sel) {
-          const textNode = this.rubyTextPreview!.firstChild;
-          if (textNode) {
-            const range = activeDocument.createRange();
-            range.setStart(textNode, this.selectedRubyRange.start);
-            range.setEnd(textNode, this.selectedRubyRange.end);
-            sel.removeAllRanges();
-            sel.addRange(range);
-          }
-        }
-      }
-    });
-
-    // 添加注音按钮
-    const addRubyBtn = rubyInputRow.createEl("button", {
-      text: loc.add,
-      cls: "annotation-btn annotation-btn-small",
-    });
-    addRubyBtn.addEventListener("click", () => this.addRuby());
-
-    // 已添加注音列表
-    const rubyListContainer = this.rubyTextContainer.createDiv({ cls: "annotation-ruby-list-container" });
-    rubyListContainer.createEl("label", { text: loc.menuRubyAdded });
-    const rubyList = rubyListContainer.createDiv({ cls: "annotation-ruby-list" });
-    this.updateRubyList = () => {
-      rubyList.empty();
-      if (this.rubyTexts.length === 0) {
-        rubyList.createDiv({ text: loc.noRuby, cls: "annotation-ruby-empty" });
-      } else {
-        this.rubyTexts.forEach((ruby, index) => {
-          const item = rubyList.createDiv({ cls: "annotation-ruby-item" });
-          item.createSpan({
-            text: `${this.selectedText.substring(ruby.startIndex, ruby.startIndex + ruby.length)} → ${ruby.ruby}`,
-            cls: "annotation-ruby-item-text",
-          });
-          const deleteBtn = item.createEl("button", {
-            text: loc.close,
-            cls: "annotation-ruby-item-delete",
-          });
-          deleteBtn.addEventListener("click", (e) => {
-            e.stopPropagation();
-            this.rubyTexts.splice(index, 1);
-            this.updateRubyList?.();
-          });
-        });
-      }
-    };
-    this.updateRubyList();
-  }
-
-  // 记录落在注音预览文本内的选区（桌面 mouseup 与移动端 selectionchange 共用）
-  private captureRubyPreviewSelection(): void {
-    if (!this.rubyTextPreview || !this.menuEl) return;
-    const sel = window.getSelection();
-    if (!sel || sel.isCollapsed || sel.rangeCount === 0) return;
-    const range = sel.getRangeAt(0);
-    // 只认完全落在预览元素内部的选区，避免把笔记正文选区误记为注音范围
-    if (
-      !this.rubyTextPreview.contains(range.startContainer) ||
-      !this.rubyTextPreview.contains(range.endContainer)
-    ) {
-      return;
-    }
-    const offset = calculateRangeOffsetInElement(range, this.rubyTextPreview);
-    if (offset) {
-      this.selectedRubyRange = { start: offset.start, end: offset.end };
-    }
-  }
-
-  private addRuby(): void {
-    const loc = t();
-    const sel = window.getSelection();
-    let selectedRubyText = "";
-    let rubyStart = 0;
-
-    if (sel && !sel.isCollapsed) {
-      // 实时选区必须完全落在注音预览内：用户若在批注框/正文里划选后点"添加"，
-      // 直接计算会得到相对预览的错误锚点
-      const range = sel.getRangeAt(0);
-      const preview = this.rubyTextPreview;
-      const insidePreview = !!preview &&
-        preview.contains(range.startContainer) &&
-        preview.contains(range.endContainer);
-      if (insidePreview) {
-        selectedRubyText = sel.toString();
-        // insidePreview（aliased condition）为真时 preview 已被收窄为 HTMLElement，无需断言
-        const offset = calculateRangeOffsetInElement(range, preview);
-        if (offset) rubyStart = offset.start;
-      }
-    }
-
-    if (!selectedRubyText && this.selectedRubyRange) {
-      selectedRubyText = this.selectedText.substring(
-        this.selectedRubyRange.start,
-        this.selectedRubyRange.end
-      );
-      rubyStart = this.selectedRubyRange.start;
-    }
-
-    const rubyValue = this.rubyTextInput!.value.trim();
-
-    if (selectedRubyText && rubyValue) {
-      this.rubyTexts.push({ startIndex: rubyStart, length: selectedRubyText.length, ruby: rubyValue });
-      this.rubyTextInput!.value = "";
-      this.selectedRubyRange = null;
-      sel?.removeAllRanges();
-      this.updateRubyList?.();
-    } else if (!selectedRubyText && this.selectedText.length === 1 && rubyValue) {
-      // 单字自动注音
-      this.rubyTexts.push({ startIndex: 0, length: 1, ruby: rubyValue });
-      this.rubyTextInput!.value = "";
-      this.selectedRubyRange = null;
-      this.updateRubyList?.();
-    } else if (!selectedRubyText) {
-      new Notice(loc.noticeRubySelect);
-    } else {
-      new Notice(loc.noticeRubyInput);
-    }
-  }
-
   private async createAnnotation(note: string, isFullText = false): Promise<void> {
     if (!this.currentNotePath || this.creating) return;
     const loc = t();
     this.creating = true;
 
     try {
-      // 全文标注不支持注音
-      const rubyTexts = !isFullText && this.rubyTextEnabled && this.rubyTexts.length > 0
-        ? this.rubyTexts
-        : undefined;
 
       // 编辑模式 + 普通标注（非全文/跨段）：直接用 replaceRange 局部替换。
       // 菜单挂在 body 上，切换到其他 md 标签页并不会关闭菜单——必须校验活动视图
@@ -560,7 +344,7 @@ export class SelectionMenu {
         const expectedAnnotationPath = normalizePath(this.fileManager.getAnnotationFilePath(this.currentNotePath));
         if (view && view.file?.path === expectedAnnotationPath) {
           const id = generateId();
-          const markTag = buildMarkTag(id, this.selectedText, this.selectedColor, note || undefined, rubyTexts);
+          const markTag = buildMarkTag(id, this.selectedText, this.selectedColor, note || undefined);
 
           view.editor.replaceRange(markTag, this.editorRange.from, this.editorRange.to);
 
@@ -579,7 +363,7 @@ export class SelectionMenu {
 
           window.getSelection()?.removeAllRanges();
           this.hide(true);
-          new Notice(note || rubyTexts ? loc.noticeAnnotationAndNoteAdded : loc.noticeAnnotationAdded);
+          new Notice(note ? loc.noticeAnnotationAndNoteAdded : loc.noticeAnnotationAdded);
           return;
         }
       }
@@ -599,7 +383,6 @@ export class SelectionMenu {
           text: this.selectedText,
           color: this.selectedColor,
           note: note || undefined,
-          rubyTexts,
           blockSegments: this.blockSegments,
         });
       } else {
@@ -607,7 +390,6 @@ export class SelectionMenu {
           text: this.selectedText,
           color: this.selectedColor,
           note: note || undefined,
-          rubyTexts,
           contextBefore: this.contextBefore,
           contextAfter: this.contextAfter,
           startLine: this.startLine,
@@ -627,7 +409,7 @@ export class SelectionMenu {
         if (isFullText) {
           new Notice(loc.fullTextAnnotation(result.positions.length));
         } else {
-          new Notice(note || rubyTexts ? loc.noticeAnnotationAndNoteAdded : loc.noticeAnnotationAdded);
+          new Notice(note ? loc.noticeAnnotationAndNoteAdded : loc.noticeAnnotationAdded);
         }
       } else {
         new Notice(loc.noticeTextNotFound);
@@ -650,9 +432,6 @@ export class SelectionMenu {
       window.visualViewport.removeEventListener("resize", this.vvResizeHandler);
       this.vvResizeHandler = null;
     }
-    // 注销移动端注音预览划选监听
-    this.rubyMobileSelectionCleanup?.();
-    this.rubyMobileSelectionCleanup = null;
     if (this.menuEl) {
       this.menuEl.remove();
       this.menuEl = null;
@@ -696,7 +475,6 @@ export class SelectionMenu {
   // 移动端：菜单打开期间拖动选择手柄 / 二次划选后，原地更新待标注内容。
   // 只替换选区相关状态（文本预览、选区参数、克隆高亮、菜单位置）；
   // 已输入的批注（noteInput/pendingNote）与所选颜色保留；
-  // 注音数据锚定旧选区的字符偏移，随选区变化作废重置（注音开关勾选态保留）
   updateSelection(params: {
     x: number;
     y: number;
@@ -728,14 +506,6 @@ export class SelectionMenu {
       this.textPreviewSpan.textContent = `"${previewText}"`;
     }
 
-    // 注音重置
-    this.rubyTexts = [];
-    this.selectedRubyRange = null;
-    if (this.rubyTextPreview) {
-      this.rubyTextPreview.textContent = this.selectedText;
-      this.rubyTextPreview.setAttribute("data-selected-text", this.selectedText);
-    }
-    this.updateRubyList?.();
 
     // 克隆高亮跟随新选区（此刻原生选区就是手柄调整后的新选区；同名 set 直接覆盖旧高亮）
     const selection = activeDocument.getSelection();
@@ -796,9 +566,6 @@ export class SelectionMenu {
     this.onAddCallback = params.onAdd;
     this.selectedColor = params.color;
     this.pendingNote = "";
-    this.rubyTexts = [];
-    this.rubyTextEnabled = false;
-    this.selectedRubyRange = null;
     this.blockSegments = params.blockSegments ?? null;
     this.editorRange = params.editorRange ?? null;
     await this.createAnnotation("");

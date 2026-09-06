@@ -1,11 +1,5 @@
 export type AnnotationColor = "1" | "2" | "3" | "4" | "5" | "6" | "7" | "8" | "9" | "10" | "none";
 
-export interface AnnotationRuby {
-  startIndex: number;
-  length: number;
-  ruby: string;
-}
-
 // 跨段标注中每个文本块的信息
 export interface BlockSegment {
   text: string;           // 该块中被选中的文本
@@ -21,7 +15,6 @@ export interface ParsedAnnotation {
   color: AnnotationColor;
   note: string;
   text: string;
-  rubyTexts: AnnotationRuby[];
   // 多位置支持（全文标注/重叠标注会产生同一 ID 的多个 <mark> 标签）
   positions: Array<{ start: number; end: number }>;
   // 全文标注标记
@@ -41,11 +34,10 @@ export interface ParsedAnnotation {
 }
 
 // AnnoCard 卡片层可编辑的标注字段子集（用于 updateAnnotation patch）
-// 注意：color/note/rubyTexts 走原 AnnotationUpdates 通道；此处仅追加新字段
+// 注意：color/note 走原 AnnotationUpdates 通道；此处仅追加新字段
 export interface AnnotationCardUpdates {
   color?: AnnotationColor;
   note?: string;
-  rubyTexts?: AnnotationRuby[];
   tags?: string[];
   archived?: boolean;
   reviewCount?: number;
@@ -57,7 +49,6 @@ export interface NewAnnotation {
   text: string;
   color: AnnotationColor;
   note?: string;
-  rubyTexts?: AnnotationRuby[];
   // 精确位置（可选，优先使用）
   position?: {
     start: number;
@@ -81,7 +72,6 @@ export interface NewAnnotation {
 export interface AnnotationUpdates {
   color?: AnnotationColor;
   note?: string;
-  rubyTexts?: AnnotationRuby[];
   // AnnoCard 卡片化管理新字段（可选）
   tags?: string[];
   archived?: boolean;
@@ -120,9 +110,6 @@ export interface AnnotationPluginSettings {
   colorLabel10: string;
   // 带批注标注的效果
   noteEffect: NoteEffect;
-  // 注音样式
-  rubyFontSize: string;
-  rubyColor: string;
   // 标注模式
   defaultViewMode: "preview" | "source";
   autoOpenAnnotation: boolean;
@@ -165,8 +152,6 @@ export const DEFAULT_SETTINGS: AnnotationPluginSettings = {
   colorLabel9: "颜色9",
   colorLabel10: "颜色10",
   noteEffect: "none",
-  rubyFontSize: "0.7em",
-  rubyColor: "#999999",
   defaultViewMode: "preview",
   autoOpenAnnotation: false,
   exportFolder: "",

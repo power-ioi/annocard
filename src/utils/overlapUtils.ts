@@ -11,7 +11,6 @@ export interface Interval {
   end: number;
   annotationColor?: AnnotationColor;
   note?: string;
-  rubyTexts?: Array<{ startIndex: number; length: number; ruby: string }>;
   // AnnoCard 卡片化管理字段（重叠重建时一并保留，避免标签/归档状态丢失）
   tags?: string[];
   archived?: boolean;
@@ -97,35 +96,6 @@ export function buildSegmentHtml(
     }
 
     let enrichedText = plainText.substring(seg.start, seg.end);
-
-    // 收集此段内的注音信息
-    const segmentRubies: Array<{ localStart: number; localEnd: number; ruby: string; annId: string }> = [];
-    for (const id of seg.ids) {
-      const ann = annotations.get(id);
-      if (ann?.rubyTexts) {
-        for (const ruby of ann.rubyTexts) {
-          const absStart = ann.start + ruby.startIndex;
-          const absEnd = absStart + ruby.length;
-          if (absStart >= seg.start && absEnd <= seg.end) {
-            segmentRubies.push({
-              localStart: absStart - seg.start,
-              localEnd: absEnd - seg.start,
-              ruby: ruby.ruby,
-              annId: id,
-            });
-          }
-        }
-      }
-    }
-
-    // 从后往前插入 <ruby> 标签
-    segmentRubies.sort((a, b) => b.localStart - a.localStart);
-    for (const sr of segmentRubies) {
-      const before = enrichedText.substring(0, sr.localStart);
-      const target = enrichedText.substring(sr.localStart, sr.localEnd);
-      const after = enrichedText.substring(sr.localEnd);
-      enrichedText = `${before}<ruby data-annotation-id="${sr.annId}">${target}<rt data-annotation-id="${sr.annId}">${encodeAttr(sr.ruby)}</rt></ruby>${after}`;
-    }
 
     // 按 ID 排序确保一致的嵌套顺序
     const sortedIds = [...seg.ids].sort();

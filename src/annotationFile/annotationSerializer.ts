@@ -1,4 +1,4 @@
-import type { AnnotationColor, AnnotationRuby, NewAnnotation } from "../types";
+import type { AnnotationColor, NewAnnotation } from "../types";
 import { COLOR_BG_VARS, COLOR_ACCENT_VARS } from "../constants";
 import { generateId, encodeAttr } from "../utils/helpers";
 import { findTextInSource, buildCleanedMap, expandToWikiLinks, findExcludedRanges } from "../utils/contentMapper";
@@ -17,36 +17,12 @@ function stripNativeRuby(text: string): string {
     .replace(/<\/?ruby[^>]*>/g, "");
 }
 
-// 构建 <ruby> 标签
-function buildRubyTag(annotationId: string, text: string, ruby: string): string {
-  // ruby 文本来自用户输入，必须转义——含 < / " 会破坏标注文件标签结构（读取端 decodeAttr 对称解码）
-  return `<ruby data-annotation-id="${annotationId}">${text}<rt data-annotation-id="${annotationId}">${encodeAttr(ruby)}</rt></ruby>`;
-}
-
-// 构建带有注音标注的文本内容
-function buildAnnotatedText(text: string, annotationId: string, rubyTexts?: AnnotationRuby[]): string {
-  if (!rubyTexts || rubyTexts.length === 0) return text;
-
-  const sorted = [...rubyTexts].sort((a, b) => b.startIndex - a.startIndex);
-  let result = text;
-
-  for (const ruby of sorted) {
-    const before = result.substring(0, ruby.startIndex);
-    const target = result.substring(ruby.startIndex, ruby.startIndex + ruby.length);
-    const after = result.substring(ruby.startIndex + ruby.length);
-    result = before + buildRubyTag(annotationId, target, ruby.ruby) + after;
-  }
-
-  return result;
-}
-
 // 构建完整的 <mark> 标签
 export function buildMarkTag(
   id: string,
   text: string,
   color: AnnotationColor,
   note?: string,
-  rubyTexts?: AnnotationRuby[],
   createdAt?: string,
   isFullText?: boolean,
   isCrossBlock?: boolean,
@@ -70,9 +46,8 @@ export function buildMarkTag(
     lastReviewedAt: cardFields?.lastReviewedAt,
   });
 
-  const annotatedText = buildAnnotatedText(text, id, rubyTexts);
 
-  return `<mark style="background:${bgVar};color:inherit;--annotation-accent:${accentVar}" data-annotation-id="${id}"${noteAttr}${cardAttr}>${annotatedText}</mark>`;
+  return `<mark style="background:${bgVar};color:inherit;--annotation-accent:${accentVar}" data-annotation-id="${id}"${noteAttr}${cardAttr}>${text}</mark>`;
 }
 
 // 在标注文件内容中插入新标注
@@ -114,7 +89,7 @@ export function insertAnnotation(content: string, annotation: NewAnnotation, cus
 
   if (!needsRebuild) {
     const tag = (sourceSlice === annotation.text)
-      ? buildMarkTag(id, sourceSlice, annotation.color, annotation.note, annotation.rubyTexts)
+      ? buildMarkTag(id, sourceSlice, annotation.color, annotation.note)
       : buildMarkTag(id, sourceSlice, annotation.color, annotation.note);
 
     return {
@@ -164,7 +139,6 @@ function rebuildOverlapRegion(
       text: a.text,
       color: a.color,
       note: a.note,
-      rubyTexts: a.rubyTexts,
       tags: a.tags,
       archived: a.archived,
       reviewCount: a.reviewCount,
@@ -177,7 +151,6 @@ function rebuildOverlapRegion(
       text: annotation.text,
       color: annotation.color,
       note: annotation.note,
-      rubyTexts: annotation.rubyTexts,
       // 新标注无卡片字段（默认值），显式列出保持类型一致
       tags: undefined as string[] | undefined,
       archived: undefined as boolean | undefined,
@@ -199,7 +172,6 @@ function rebuildOverlapRegion(
         annotationColor: ann.color,
         // note 传原文，由 buildSegmentHtml 统一转义
         note: ann.note || undefined,
-        rubyTexts: ann.rubyTexts,
         tags: ann.tags,
         archived: ann.archived,
         reviewCount: ann.reviewCount,
@@ -383,7 +355,6 @@ export function updateAnnotationTag(
   updates: {
     color?: AnnotationColor;
     note?: string;
-    rubyTexts?: AnnotationRuby[];
     // AnnoCard 卡片化管理字段
     tags?: string[];
     archived?: boolean;
@@ -470,14 +441,8 @@ export function updateAnnotationTag(
       newAttrs += cardAttr;
     }
 
-    let newInnerContent = innerContent;
-    if (updates.rubyTexts !== undefined) {
-      // 只剥离本标注的 ruby（嵌套的其他标注 ruby 不受影响）后按新注音重建
-      const plainText = removeRubyById(innerContent, annotationId);
-      newInnerContent = buildAnnotatedText(plainText, annotationId, updates.rubyTexts);
-    }
 
-    result = result.slice(0, r.start) + `<mark ${newAttrs}>${newInnerContent}</mark>` + result.slice(r.end);
+    result = result.slice(0, r.start) + `<mark ${newAttrs}>${innerContent}</mark>` + result.slice(r.end);
   }
 
   return result;
@@ -554,7 +519,6 @@ export function insertCrossBlockAnnotation(
 
   const id = generateId();
 
-  const blockRubyMap = distributeRubyTexts(segments, annotation.rubyTexts);
 
   const sorted = [...segments]
     .map((seg, idx) => ({ ...seg, originalIdx: idx }))
@@ -576,17 +540,14 @@ export function insertCrossBlockAnnotation(
     const needsRebuild = /<(?:mark|ruby|rt)\s[^>]*data-annotation-id|<\/mark>/i.test(sourceSlice);
 
     if (!needsRebuild) {
-      const localRuby = blockRubyMap.get(block.originalIdx);
-      const tag = buildMarkTag(id, sourceSlice, annotation.color, annotation.note, localRuby, undefined, undefined, true);
+      const tag = buildMarkTag(id, sourceSlice, annotation.color, annotation.note, undefined, undefined, true);
       newContent = newContent.substring(0, found.start) + tag + newContent.substring(found.end);
       successCount++;
     } else {
-      const localRuby = blockRubyMap.get(block.originalIdx);
       const result = rebuildOverlapRegion(newContent, found.start, found.end, id, {
         text: block.text,
         color: annotation.color,
         note: annotation.note,
-        rubyTexts: localRuby,
       });
       newContent = result.content;
       successCount++;
@@ -594,38 +555,4 @@ export function insertCrossBlockAnnotation(
   }
 
   return { content: newContent, id, blockCount: successCount };
-}
-
-// 将全局 ruby 偏移量按 fullTextOffset 分配到各块
-function distributeRubyTexts(
-  blocks: Array<{ fullTextOffset: number; text: string }>,
-  rubyTexts?: Array<{ startIndex: number; length: number; ruby: string }>
-): Map<number, Array<{ startIndex: number; length: number; ruby: string }>> {
-  const result = new Map<number, Array<{ startIndex: number; length: number; ruby: string }>>();
-  if (!rubyTexts || rubyTexts.length === 0) return result;
-
-  for (let i = 0; i < blocks.length; i++) {
-    const block = blocks[i]!;
-    const blockStart = block.fullTextOffset;
-    const blockEnd = blockStart + block.text.length;
-    const localRubies: Array<{ startIndex: number; length: number; ruby: string }> = [];
-
-    for (const ruby of rubyTexts) {
-      const rubyStart = ruby.startIndex;
-      const rubyEnd = rubyStart + ruby.length;
-      if (rubyStart >= blockStart && rubyEnd <= blockEnd) {
-        localRubies.push({
-          startIndex: rubyStart - blockStart,
-          length: ruby.length,
-          ruby: ruby.ruby,
-        });
-      }
-    }
-
-    if (localRubies.length > 0) {
-      result.set(i, localRubies);
-    }
-  }
-
-  return result;
 }

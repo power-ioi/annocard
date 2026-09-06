@@ -819,154 +819,46 @@
   }
 }
 
-.annotation-ruby-section {
-  margin-top: 12px;
-  padding-top: 12px;
-  border-top: 1px solid var(--background-modifier-border);
-}
 
-.annotation-ruby-row {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  margin-bottom: 10px;
-}
 
-.annotation-ruby-checkbox {
-  width: 16px;
-  height: 16px;
-  cursor: pointer;
-  accent-color: var(--interactive-accent);
-}
 
-.annotation-ruby-row label {
-  font-size: 13px;
-  color: var(--text-normal);
-  font-weight: 500;
-  cursor: pointer;
-}
 
-.annotation-ruby-input-container {
-  display: flex;
-  flex-direction: column;
-  gap: 12px;
-  padding-top: 12px;
-}
 
-.annotation-ruby-preview {
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
-}
 
-.annotation-ruby-preview label {
-  font-size: 12px;
-  color: var(--text-muted);
-  font-weight: 500;
-}
 
-.annotation-ruby-text-preview {
-  padding: 8px 12px;
-  background: var(--background-secondary);
-  border: 1px solid var(--background-modifier-border);
-  border-radius: 6px;
-  font-size: 13px;
-  line-height: 1.5;
-  user-select: text;
-  cursor: text;
-}
 
-.annotation-ruby-input-row {
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
-}
 
-.annotation-ruby-input-row label {
-  font-size: 12px;
-  color: var(--text-muted);
-  font-weight: 500;
-}
 
-.annotation-ruby-input {
-  width: 100%;
-  padding: 8px 12px;
-  background: var(--background-primary);
-  border: 1px solid var(--background-modifier-border);
-  border-radius: 6px;
-  color: var(--text-normal);
-  font-family: inherit;
-  font-size: 14px;
-  box-sizing: border-box;
-}
 
-.annotation-ruby-input:focus {
-  outline: none;
-  border-color: var(--interactive-accent);
-  box-shadow: 0 0 0 2px rgba(var(--interactive-accent-rgb), 0.2);
-}
 
-.annotation-ruby-list-container {
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
-}
 
-.annotation-ruby-list-container label {
-  font-size: 12px;
-  color: var(--text-muted);
-  font-weight: 500;
-}
 
-.annotation-ruby-list {
-  max-height: 120px;
-  overflow-y: auto;
-}
 
-.annotation-ruby-empty {
-  color: var(--text-muted);
-  font-size: 12px;
-  padding: 8px 0;
-  font-style: italic;
-}
 
-.annotation-ruby-item {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 8px;
-  padding: 6px 8px;
-  background: var(--background-secondary);
-  border-radius: 4px;
-}
 
-.annotation-ruby-item-text {
-  flex: 1;
-  font-size: 13px;
-  color: var(--text-normal);
-}
 
-.annotation-ruby-item-delete {
-  width: 20px;
-  height: 20px;
-  border: none;
-  background: transparent;
-  color: var(--text-muted);
-  font-size: 16px;
-  cursor: pointer;
-  border-radius: 4px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  padding: 0;
-  line-height: 1;
-}
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 @media (hover: hover) {
-  .annotation-ruby-item-delete:hover {
-    background: var(--background-modifier-hover);
-    color: var(--text-normal);
-  }
+
 }
 
 /* ========== 标注视图样式 ========== */
@@ -1048,15 +940,9 @@
 }
 
 /* 标注视图中的 ruby 标签样式 */
-ruby[data-annotation-id] {
-  position: relative;
-}
 
-ruby[data-annotation-id] rt[data-annotation-id] {
-  font-size: var(--annotation-ruby-font-size, 0.7em);
-  color: var(--annotation-ruby-color, var(--text-muted));
-  font-weight: normal;
-}
+
+
 
 /* ========== 侧边栏标注管理视图 ========== */
 
