@@ -10,7 +10,7 @@ import type AnnotationPlugin from "../main";
 import { t } from "../i18n";
 import { FolderSuggestModal, FileNameModal, ConfirmOverwriteModal } from "../ui/ExportModal";
 import { sortAnnotations, buildExportContent } from "../utils/exporter";
-import { applyCardFilter, collectTagFrequencies, tagsByFrequency, type CardFilterState } from "../cards/CardFilter";
+import { applyCardFilter, tagsByFrequency, type CardFilterState } from "../cards/CardFilter";
 import { TagSuggest } from "../cards/TagSuggest";
 import { BatchTagInputModal, batchAddTags, confirmBatchDelete } from "../cards/BatchMode";
 import { ReviewMode } from "../cards/ReviewMode";
@@ -544,15 +544,17 @@ export class AnnotationSidebarView extends ItemView {
       new Notice(t().cardNoticeNoSelection);
       return;
     }
-    new BatchTagInputModal(this.app, async (tags) => {
-      await batchAddTags(this.fileManager, selected, tags);
-      // 刷新标注视图
-      const notePaths = new Set(selected.map((c) => c.notePath));
-      for (const notePath of notePaths) {
-        await this.plugin.refreshAnnotationView(notePath);
-      }
-      // 不清空选中,允许继续操作;重新加载列表以反映新标签
-      await this.refresh();
+    new BatchTagInputModal(this.app, (tags) => {
+      void (async () => {
+        await batchAddTags(this.fileManager, selected, tags);
+        // 刷新标注视图
+        const notePaths = new Set(selected.map((c) => c.notePath));
+        for (const notePath of notePaths) {
+          await this.plugin.refreshAnnotationView(notePath);
+        }
+        // 不清空选中,允许继续操作;重新加载列表以反映新标签
+        await this.refresh();
+      })();
     }).open();
   }
 
@@ -625,11 +627,10 @@ export class AnnotationSidebarView extends ItemView {
       return;
     }
 
-    const input = document.createElement("input");
-    input.type = "text";
-    input.className = "annocard-tag-input";
-    input.setAttribute("placeholder", t().cardTagAddPlaceholder);
-    input.setAttribute("size", "12");
+    const input = createEl("input", {
+      cls: "annocard-tag-input",
+      attr: { type: "text", placeholder: t().cardTagAddPlaceholder, size: "12" },
+    });
     tagsEl.appendChild(input);
     input.focus();
 
@@ -637,14 +638,14 @@ export class AnnotationSidebarView extends ItemView {
     const suggest = new TagSuggest(this.app, input, () => this.allTagCandidates);
     suggest.onSelect((suggestion) => {
       input.value = suggestion.tag;
-      this.commitTagInput(cardData, input, tagsEl);
+      void this.commitTagInput(cardData, input, tagsEl);
     });
 
     let committed = false;
     const commitHandler = () => {
       if (committed) return;
       committed = true;
-      this.commitTagInput(cardData, input, tagsEl);
+      void this.commitTagInput(cardData, input, tagsEl);
     };
 
     input.addEventListener("keydown", (e) => {

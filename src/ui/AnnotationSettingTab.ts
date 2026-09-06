@@ -2,7 +2,6 @@ import { PluginSettingTab, Setting, requireApiVersion, type SettingDefinitionIte
 import type AnnotationPlugin from "../main";
 import { COLOR_NUMBERS, type AnnotationColor, type NoteEffect } from "../types";
 import { getActiveColorNumbers, MAX_COLOR_COUNT } from "../constants";
-import { AnnotationSidebarView, ANNOTATION_SIDEBAR_VIEW_TYPE } from "../sidebar/AnnotationSidebarView";
 import { t } from "../i18n";
 
 export class AnnotationSettingTab extends PluginSettingTab {

@@ -139,12 +139,6 @@ export function scanAnnotationTags(text: string, offset: number, fullText: strin
 	return blocks;
 }
 
-// 找到 <rt ...> 开标签的结束位置（即 > 后面一位）
-function findRtOpenEnd(text: string, rtStartPos: number): number {
-	const gtPos = text.indexOf(">", rtStartPos);
-	return gtPos >= 0 ? gtPos + 1 : rtStartPos;
-}
-
 // 快速检查文本是否包含标注标签
 export function hasAnnotationTags(text: string): boolean {
 	return text.includes('data-annotation-id') && text.includes('<mark');

@@ -4598,8 +4598,9 @@ function createAnnotationCard(parent, cardData, handlers, options) {
     });
     (0, import_obsidian12.setIcon)(editBtn, "pencil");
     editBtn.addEventListener("click", (e) => {
+      var _a2;
       e.stopPropagation();
-      options.onEditNote(cardData, noteEl);
+      (_a2 = options.onEditNote) == null ? void 0 : _a2.call(options, cardData, noteEl);
     });
   }
   const openBtn = actions.createEl("button", {
@@ -5665,13 +5666,15 @@ var AnnotationSidebarView = class extends import_obsidian16.ItemView {
       new import_obsidian16.Notice(t().cardNoticeNoSelection);
       return;
     }
-    new BatchTagInputModal(this.app, async (tags) => {
-      await batchAddTags(this.fileManager, selected, tags);
-      const notePaths = new Set(selected.map((c) => c.notePath));
-      for (const notePath of notePaths) {
-        await this.plugin.refreshAnnotationView(notePath);
-      }
-      await this.refresh();
+    new BatchTagInputModal(this.app, (tags) => {
+      void (async () => {
+        await batchAddTags(this.fileManager, selected, tags);
+        const notePaths = new Set(selected.map((c) => c.notePath));
+        for (const notePath of notePaths) {
+          await this.plugin.refreshAnnotationView(notePath);
+        }
+        await this.refresh();
+      })();
     }).open();
   }
   // ========== 卡片内联编辑 ==========
@@ -5729,23 +5732,22 @@ var AnnotationSidebarView = class extends import_obsidian16.ItemView {
       existing.focus();
       return;
     }
-    const input = document.createElement("input");
-    input.type = "text";
-    input.className = "annocard-tag-input";
-    input.setAttribute("placeholder", t().cardTagAddPlaceholder);
-    input.setAttribute("size", "12");
+    const input = createEl("input", {
+      cls: "annocard-tag-input",
+      attr: { type: "text", placeholder: t().cardTagAddPlaceholder, size: "12" }
+    });
     tagsEl.appendChild(input);
     input.focus();
     const suggest = new TagSuggest(this.app, input, () => this.allTagCandidates);
     suggest.onSelect((suggestion) => {
       input.value = suggestion.tag;
-      this.commitTagInput(cardData, input, tagsEl);
+      void this.commitTagInput(cardData, input, tagsEl);
     });
     let committed = false;
     const commitHandler = () => {
       if (committed) return;
       committed = true;
-      this.commitTagInput(cardData, input, tagsEl);
+      void this.commitTagInput(cardData, input, tagsEl);
     };
     input.addEventListener("keydown", (e) => {
       if (e.key === "Enter") {

@@ -1,8 +1,8 @@
 {
   "id": "annocard",
   "name": "AnnoCard",
-  "version": "3.1.0",
-  "minAppVersion": "1.4.0",
+  "version": "3.1.1",
+  "minAppVersion": "1.5.0",
   "description": "独立标注数据 + 卡片化管理：高亮、批注、标签、批量删除、复习模式。融合自 annotation-marker (MIT) 与 HiLighter | Standalone annotation data + card management, based on annotation-marker (MIT) & HiLighter.",
   "author": "power-ioi",
   "authorUrl": "https://github.com/power-ioi",

@@ -210,7 +210,7 @@ export function parseCardFields(attrs: string): {
   const tagsAttr = getAttr(attrs, "data-annotation-tags");
   if (tagsAttr) {
     try {
-      const parsed = JSON.parse(decodeAttr(tagsAttr));
+      const parsed: unknown = JSON.parse(decodeAttr(tagsAttr));
       if (Array.isArray(parsed)) {
         tags = parsed.filter((t): t is string => typeof t === "string");
       }

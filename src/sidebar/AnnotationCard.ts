@@ -144,7 +144,7 @@ export function createAnnotationCard(
     setIcon(editBtn, "pencil");
     editBtn.addEventListener("click", (e) => {
       e.stopPropagation();
-      options.onEditNote!(cardData, noteEl!);
+      options.onEditNote?.(cardData, noteEl);
     });
   }
 
