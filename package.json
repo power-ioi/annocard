@@ -1,6 +1,6 @@
 {
   "name": "obsidian-annocard",
-  "version": "3.1.1",
+  "version": "3.2.0",
   "description": "AnnoCard - 独立标注数据 + 卡片化管理：高亮、批注、标签、批量删除、复习模式",
   "main": "main.js",
   "type": "module",
