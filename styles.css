@@ -2376,11 +2376,12 @@
   box-shadow: 0 6px 18px rgba(0, 0, 0, 0.15);
 }
 .annocard-review-again {
-  background: rgba(var(--background-secondary-rgb), 0.5) !important;
-  color: var(--text-normal) !important;
+  /* 手机端 Obsidian 无 --background-secondary-rgb 变量,固定红色调保证按钮背景可见 */
+  background: rgba(208, 82, 78, 0.12) !important;
+  color: #d0524e !important;
 }
 .annocard-review-again:hover {
-  background: var(--annocard-accent) !important;
+  background: #d0524e !important;
   color: #fff !important;
 }
 .annocard-review-mastered {
@@ -2844,6 +2845,27 @@
 }
 .annocard-review-actions-bar .annotation-btn {
   min-width: 88px;
+}
+
+/* 移动端:复习底部四按钮均分一行,不超出背景框,并适配 iOS 安全区 */
+.is-mobile .annocard-review-overlay,
+.is-tablet .annocard-review-overlay {
+  padding: 12px 14px calc(12px + env(safe-area-inset-bottom));
+}
+.is-mobile .annocard-review-actions-bar,
+.is-tablet .annocard-review-actions-bar {
+  flex-wrap: nowrap;
+  gap: 8px;
+  padding: 10px 12px calc(10px + env(safe-area-inset-bottom));
+}
+.is-mobile .annocard-review-actions-bar .annotation-btn,
+.is-tablet .annocard-review-actions-bar .annotation-btn {
+  flex: 1 1 0;
+  min-width: 0;
+  padding: 9px 6px;
+  font-size: 13.5px;
+  min-height: 38px;
+  line-height: 1.4;
 }
 
 
