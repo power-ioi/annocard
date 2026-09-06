@@ -2904,3 +2904,21 @@ ruby[data-annotation-id] rt[data-annotation-id] {
   font-variant-numeric: tabular-nums;
   letter-spacing: 0.03em;
 }
+
+/* 顶部 标签/顺序 下拉选择框:灰黑色毛玻璃 */
+.annotation-sidebar-tag-select,
+.annotation-sidebar-sort-select {
+  background-color: rgba(38, 38, 42, 0.55) !important;
+  -webkit-backdrop-filter: blur(14px) saturate(150%);
+  backdrop-filter: blur(14px) saturate(150%);
+  color: #ffffff !important;
+  color-scheme: dark;
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  border-radius: 8px;
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.18);
+}
+.annotation-sidebar-tag-select option,
+.annotation-sidebar-sort-select option {
+  background-color: rgba(30, 30, 34, 0.92);
+  color: #ffffff;
+}
