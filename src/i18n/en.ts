@@ -155,6 +155,7 @@ export const en: LocaleDict = {
   cardSetOrderAsc: "Forward",
   cardSetOrderDesc: "Reverse",
   cardSetNoNote: "No note",
+  cardSetNoTags: "No tags",
   tagEditTitle: "Edit tags",
   cardReviewStat: (n: number, r: number, f: number) => `Total ${n}, remembered ${r}, forgot ${f}`,
   cardReviewProgress: (cur: number, total: number) => `${cur} / ${total}`,

@@ -27,7 +27,7 @@ __export(main_exports, {
   default: () => AnnotationPlugin
 });
 module.exports = __toCommonJS(main_exports);
-var import_obsidian20 = require("obsidian");
+var import_obsidian19 = require("obsidian");
 
 // src/annotationFile/AnnotationFileManager.ts
 var import_obsidian = require("obsidian");
@@ -2091,6 +2091,7 @@ var zhCN = {
   cardSetOrderAsc: "\u6B63\u5E8F",
   cardSetOrderDesc: "\u5012\u5E8F",
   cardSetNoNote: "\u65E0\u6279\u6CE8",
+  cardSetNoTags: "\u65E0\u6807\u7B7E",
   tagEditTitle: "\u7F16\u8F91\u6807\u7B7E",
   cardReviewStat: (n, r, f) => `\u5171 ${n} \u5F20,\u8BB0\u4F4F ${r} \u5F20,\u5FD8\u8BB0 ${f} \u5F20`,
   cardReviewProgress: (cur, total) => `${cur} / ${total}`,
@@ -2320,6 +2321,7 @@ var en = {
   cardSetOrderAsc: "Forward",
   cardSetOrderDesc: "Reverse",
   cardSetNoNote: "No note",
+  cardSetNoTags: "No tags",
   tagEditTitle: "Edit tags",
   cardReviewStat: (n, r, f) => `Total ${n}, remembered ${r}, forgot ${f}`,
   cardReviewProgress: (cur, total) => `${cur} / ${total}`,
@@ -4530,66 +4532,10 @@ function createAnnotationViewExtension() {
 }
 
 // src/sidebar/AnnotationSidebarView.ts
-var import_obsidian17 = require("obsidian");
-
-// src/ui/TagEditModal.ts
-var import_obsidian12 = require("obsidian");
-var TagEditModal = class extends import_obsidian12.Modal {
-  constructor(app, initialTags, onSave) {
-    super(app);
-    this.inputEl = null;
-    this.initialTags = initialTags;
-    this.onSave = onSave;
-  }
-  onOpen() {
-    this.contentEl.empty();
-    const loc = t();
-    this.contentEl.createEl("h3", { text: loc.tagEditTitle });
-    const row = this.contentEl.createDiv({ cls: "annocard-tag-edit-row" });
-    this.inputEl = row.createEl("input", {
-      cls: "annocard-tag-edit-input",
-      type: "text",
-      placeholder: loc.cardTagAddPlaceholder
-    });
-    this.inputEl.value = this.initialTags.join(", ");
-    this.inputEl.addEventListener("keydown", (e) => {
-      if (e.key === "Enter") {
-        e.preventDefault();
-        this.submit();
-      }
-    });
-    const actions = this.contentEl.createDiv({ cls: "annocard-tag-edit-actions" });
-    const cancelBtn = actions.createEl("button", {
-      cls: "annotation-btn annotation-btn-secondary",
-      text: loc.cancel
-    });
-    cancelBtn.addEventListener("click", () => this.close());
-    const saveBtn = actions.createEl("button", {
-      cls: "annotation-btn annotation-btn-primary mod-cta",
-      text: loc.save
-    });
-    saveBtn.addEventListener("click", () => this.submit());
-    window.setTimeout(() => {
-      var _a;
-      return (_a = this.inputEl) == null ? void 0 : _a.focus();
-    }, 50);
-  }
-  submit() {
-    var _a, _b;
-    const raw = (_b = (_a = this.inputEl) == null ? void 0 : _a.value) != null ? _b : "";
-    const tags = Array.from(
-      new Set(raw.split(/[,，、;；\s]+/).map((s) => s.trim()).filter(Boolean))
-    );
-    this.close();
-    this.onSave(tags);
-  }
-  onClose() {
-    this.contentEl.empty();
-  }
-};
+var import_obsidian16 = require("obsidian");
 
 // src/sidebar/AnnotationCard.ts
-var import_obsidian13 = require("obsidian");
+var import_obsidian12 = require("obsidian");
 function createAnnotationCard(parent, cardData, handlers, options) {
   var _a;
   const { annotation, fileName } = cardData;
@@ -4668,7 +4614,7 @@ function createAnnotationCard(parent, cardData, handlers, options) {
       cls: "annocard-icon-btn",
       attr: { "aria-label": t().cardEdit }
     });
-    (0, import_obsidian13.setIcon)(editBtn, "pencil");
+    (0, import_obsidian12.setIcon)(editBtn, "pencil");
     editBtn.addEventListener("click", (e) => {
       var _a2;
       e.stopPropagation();
@@ -4679,18 +4625,18 @@ function createAnnotationCard(parent, cardData, handlers, options) {
     cls: "annocard-icon-btn",
     attr: { "aria-label": loc.cardOpen }
   });
-  (0, import_obsidian13.setIcon)(openBtn, "external-link");
+  (0, import_obsidian12.setIcon)(openBtn, "external-link");
   const deleteBtn = actions.createEl("button", {
     cls: "annocard-icon-btn annocard-icon-danger",
     attr: { "aria-label": loc.cardDelete }
   });
-  (0, import_obsidian13.setIcon)(deleteBtn, "trash-2");
+  (0, import_obsidian12.setIcon)(deleteBtn, "trash-2");
   if (options == null ? void 0 : options.onAddTag) {
     const tagBtn = actions.createEl("button", {
       cls: "annocard-icon-btn",
       attr: { "aria-label": t().cardTagAddTitle }
     });
-    (0, import_obsidian13.setIcon)(tagBtn, "tag");
+    (0, import_obsidian12.setIcon)(tagBtn, "tag");
     tagBtn.addEventListener("click", (e) => {
       e.stopPropagation();
       options.onAddTag(cardData, tagsEl);
@@ -4821,8 +4767,8 @@ function tagsByFrequency(cards) {
 }
 
 // src/cards/TagSuggest.ts
-var import_obsidian14 = require("obsidian");
-var TagSuggest = class extends import_obsidian14.AbstractInputSuggest {
+var import_obsidian13 = require("obsidian");
+var TagSuggest = class extends import_obsidian13.AbstractInputSuggest {
   constructor(app, textInputEl, candidateProvider) {
     super(app, textInputEl);
     this.candidateProvider = candidateProvider;
@@ -4837,7 +4783,7 @@ var TagSuggest = class extends import_obsidian14.AbstractInputSuggest {
     const prefixMatches = [];
     const containsMatches = [];
     const fuzzyMatches = [];
-    const fuzzy = (0, import_obsidian14.prepareFuzzySearch)(q);
+    const fuzzy = (0, import_obsidian13.prepareFuzzySearch)(q);
     for (const tag of candidates) {
       const lt = lower(tag);
       if (lt.startsWith(q)) {
@@ -4884,20 +4830,20 @@ var TagSuggest = class extends import_obsidian14.AbstractInputSuggest {
 };
 
 // src/cards/BatchMode.ts
-var import_obsidian15 = require("obsidian");
+var import_obsidian14 = require("obsidian");
 async function batchDeleteAnnotations(app, fileManager, cards) {
   if (cards.length === 0) {
-    new import_obsidian15.Notice(t().cardNoticeNoSelection);
+    new import_obsidian14.Notice(t().cardNoticeNoSelection);
     return 0;
   }
   const idList = cards.map((c) => c.annotation.id);
   await fileManager.deleteAnnotations(idList);
-  new import_obsidian15.Notice(t().cardNoticeBatchDeleted(cards.length));
+  new import_obsidian14.Notice(t().cardNoticeBatchDeleted(cards.length));
   return cards.length;
 }
 function confirmBatchDelete(app, fileManager, cards, onDone) {
   if (cards.length === 0) {
-    new import_obsidian15.Notice(t().cardNoticeNoSelection);
+    new import_obsidian14.Notice(t().cardNoticeNoSelection);
     return;
   }
   new ConfirmOverwriteModal(
@@ -4913,7 +4859,7 @@ function confirmBatchDelete(app, fileManager, cards, onDone) {
 async function batchAddTags(fileManager, cards, tags) {
   var _a;
   if (cards.length === 0) {
-    new import_obsidian15.Notice(t().cardNoticeNoSelection);
+    new import_obsidian14.Notice(t().cardNoticeNoSelection);
     return 0;
   }
   if (tags.length === 0) return 0;
@@ -4928,10 +4874,10 @@ async function batchAddTags(fileManager, cards, tags) {
       console.error("\u6279\u91CF\u6253\u6807\u7B7E\u5931\u8D25:", card.annotation.id, e);
     }
   }
-  new import_obsidian15.Notice(t().cardNoticeBatchTagged(updated));
+  new import_obsidian14.Notice(t().cardNoticeBatchTagged(updated));
   return updated;
 }
-var BatchTagInputModal = class extends import_obsidian15.Modal {
+var BatchTagInputModal = class extends import_obsidian14.Modal {
   constructor(app, onConfirm) {
     super(app);
     this.onConfirm = onConfirm;
@@ -4986,7 +4932,7 @@ var BatchTagInputModal = class extends import_obsidian15.Modal {
 };
 
 // src/cards/ReviewMode.ts
-var import_obsidian16 = require("obsidian");
+var import_obsidian15 = require("obsidian");
 var ReviewMode = class {
   constructor(fileManager, cards, options) {
     // 洗牌后的复习序列(全量)
@@ -5022,14 +4968,14 @@ var ReviewMode = class {
    */
   start() {
     if (this.cards.length === 0) {
-      new import_obsidian16.Notice(t().cardReviewEmpty);
+      new import_obsidian15.Notice(t().cardReviewEmpty);
       return;
     }
     this.shuffled = this.shuffle(this.cards.slice());
     const limit = this.options.batchSize > 0 ? this.options.batchSize : this.shuffled.length;
     this.shuffled = this.shuffled.slice(0, Math.min(limit, this.shuffled.length));
     if (this.shuffled.length === 0) {
-      new import_obsidian16.Notice(t().cardReviewEmpty);
+      new import_obsidian15.Notice(t().cardReviewEmpty);
       return;
     }
     this.rememberedKeys = new Set(
@@ -5105,7 +5051,7 @@ var ReviewMode = class {
     this.cursor = 0;
     this.updateFilterBtns();
     if (this.queue.length === 0) {
-      new import_obsidian16.Notice(t().cardReviewEmpty);
+      new import_obsidian15.Notice(t().cardReviewEmpty);
     }
     this.renderCurrentCard();
   }
@@ -5243,7 +5189,7 @@ var ReviewMode = class {
       this.rememberedKeys.add(this.keyOf(card));
       this.updateFilterBtns();
       (_b = (_a = this.options).onCardUpdated) == null ? void 0 : _b.call(_a, card);
-      new import_obsidian16.Notice(t().cardNoticeArchived, 1e3);
+      new import_obsidian15.Notice(t().cardNoticeArchived, 1e3);
     } catch (e) {
       console.error("\u5F52\u6863\u4FDD\u5B58\u5931\u8D25:", e);
     }
@@ -5273,7 +5219,7 @@ var ReviewMode = class {
       }
       this.forgetClicks++;
       (_c = (_b = this.options).onCardUpdated) == null ? void 0 : _c.call(_b, card);
-      new import_obsidian16.Notice(t().cardNoticeReviewSaved, 1e3);
+      new import_obsidian15.Notice(t().cardNoticeReviewSaved, 1e3);
     } catch (e) {
       console.error("\u590D\u4E60\u8BA1\u6570\u4FDD\u5B58\u5931\u8D25:", e);
     }
@@ -5312,7 +5258,7 @@ var ReviewMode = class {
 // src/sidebar/AnnotationSidebarView.ts
 var ANNOTATION_SIDEBAR_VIEW_TYPE = "annotation-sidebar-view";
 var CARD_PAGE_SIZE = 100;
-var AnnotationSidebarView = class extends import_obsidian17.ItemView {
+var AnnotationSidebarView = class extends import_obsidian16.ItemView {
   constructor(leaf, plugin) {
     super(leaf);
     // 状态
@@ -5353,6 +5299,8 @@ var AnnotationSidebarView = class extends import_obsidian17.ItemView {
     this.cardSetOverlayEl = null;
     this.cardSetPopupCards = null;
     this.cardSetCursor = 0;
+    // 小弹窗模式:view 查看 / note 编辑批注 / tags 编辑标签 / delete 删除确认
+    this.cardSetEdit = "view";
     this.cardSetKeyHandler = null;
     this.expandBtn = null;
     this.collapseBtn = null;
@@ -5503,7 +5451,7 @@ var AnnotationSidebarView = class extends import_obsidian17.ItemView {
       cls: "hl-btn-all annocard-icon-toolbar-btn annotation-sidebar-export-btn",
       attr: { "aria-label": t().sidebarExportBtn }
     });
-    (0, import_obsidian17.setIcon)(this.exportBtn, "download");
+    (0, import_obsidian16.setIcon)(this.exportBtn, "download");
     this.exportBtn.addEventListener("click", () => {
       void this.exportCurrentAnnotations();
     });
@@ -5512,7 +5460,7 @@ var AnnotationSidebarView = class extends import_obsidian17.ItemView {
       cls: "hl-btn-all annocard-icon-toolbar-btn annocard-toolbar-batch",
       attr: { "aria-label": t().cardBatchMode }
     });
-    (0, import_obsidian17.setIcon)(this.batchBtn, "list-checks");
+    (0, import_obsidian16.setIcon)(this.batchBtn, "list-checks");
     this.batchBtn.toggleClass("is-active", this.batchMode);
     this.batchBtn.addEventListener("click", () => {
       var _a;
@@ -5526,7 +5474,7 @@ var AnnotationSidebarView = class extends import_obsidian17.ItemView {
       cls: "hl-btn-all annocard-icon-toolbar-btn annocard-toolbar-review",
       attr: { "aria-label": t().cardSetTitle }
     });
-    (0, import_obsidian17.setIcon)(this.reviewBtn, "layout-grid");
+    (0, import_obsidian16.setIcon)(this.reviewBtn, "layout-grid");
     this.reviewBtn.addEventListener("click", () => this.toggleReviewOverview());
   }
   // 切换卡片内容折叠状态并同步按钮态
@@ -5733,7 +5681,7 @@ var AnnotationSidebarView = class extends import_obsidian17.ItemView {
   handleBatchDelete() {
     const selected = this.collectSelectedCards();
     if (selected.length === 0) {
-      new import_obsidian17.Notice(t().cardNoticeNoSelection);
+      new import_obsidian16.Notice(t().cardNoticeNoSelection);
       return;
     }
     confirmBatchDelete(this.app, this.fileManager, selected, async () => {
@@ -5750,7 +5698,7 @@ var AnnotationSidebarView = class extends import_obsidian17.ItemView {
   handleBatchTag() {
     const selected = this.collectSelectedCards();
     if (selected.length === 0) {
-      new import_obsidian17.Notice(t().cardNoticeNoSelection);
+      new import_obsidian16.Notice(t().cardNoticeNoSelection);
       return;
     }
     new BatchTagInputModal(this.app, (tags) => {
@@ -5794,7 +5742,7 @@ var AnnotationSidebarView = class extends import_obsidian17.ItemView {
         noteEl.textContent = newNote;
         noteEl.toggleClass("annocard-note-empty", !newNote);
         parent.replaceChild(noteEl, textarea);
-        new import_obsidian17.Notice(t().cardNoticeNoteUpdated);
+        new import_obsidian16.Notice(t().cardNoticeNoteUpdated);
       } catch (e) {
         console.error("\u5185\u8054\u7F16\u8F91\u6279\u6CE8\u5931\u8D25:", e);
         parent.replaceChild(noteEl, textarea);
@@ -5869,7 +5817,7 @@ var AnnotationSidebarView = class extends import_obsidian17.ItemView {
       await this.fileManager.updateAnnotation(cardData.notePath, cardData.annotation.id, { tags: merged });
       cardData.annotation.tags = merged;
       await this.plugin.refreshAnnotationView(cardData.notePath);
-      new import_obsidian17.Notice(t().cardNoticeTagAdded);
+      new import_obsidian16.Notice(t().cardNoticeTagAdded);
       await this.refresh();
     } catch (e) {
       console.error("\u6DFB\u52A0\u6807\u7B7E\u5931\u8D25:", e);
@@ -5885,7 +5833,7 @@ var AnnotationSidebarView = class extends import_obsidian17.ItemView {
       await this.fileManager.updateAnnotation(cardData.notePath, cardData.annotation.id, { tags: merged });
       cardData.annotation.tags = merged;
       await this.plugin.refreshAnnotationView(cardData.notePath);
-      new import_obsidian17.Notice(t().cardNoticeTagRemoved);
+      new import_obsidian16.Notice(t().cardNoticeTagRemoved);
       await this.refresh();
     } catch (e) {
       console.error("\u5220\u9664\u6807\u7B7E\u5931\u8D25:", e);
@@ -5899,7 +5847,7 @@ var AnnotationSidebarView = class extends import_obsidian17.ItemView {
     if (this.reviewMode) return;
     const reviewCards = cards != null ? cards : this.cachedSortedCards;
     if (reviewCards.length === 0) {
-      new import_obsidian17.Notice(t().cardReviewEmpty);
+      new import_obsidian16.Notice(t().cardReviewEmpty);
       return;
     }
     this.reviewOverviewActive = false;
@@ -5982,16 +5930,12 @@ var AnnotationSidebarView = class extends import_obsidian17.ItemView {
     const loc = t();
     root.empty();
     const cards = this.getCardSetCards();
-    if (cards.length === 0) {
-      this.renderEmpty(root, loc.cardReviewEmpty);
-      return;
-    }
     const bar = root.createDiv({ cls: "annocard-cs-toolbar" });
     const viewWrap = bar.createDiv({ cls: "annocard-cs-viewtoggle" });
     const squareBtn = viewWrap.createEl("button", { cls: "annocard-cs-viewbtn", attr: { "aria-label": loc.cardSetViewSquare } });
-    (0, import_obsidian17.setIcon)(squareBtn, "layout-grid");
+    (0, import_obsidian16.setIcon)(squareBtn, "layout-grid");
     const barBtn = viewWrap.createEl("button", { cls: "annocard-cs-viewbtn", attr: { "aria-label": loc.cardSetViewBar } });
-    (0, import_obsidian17.setIcon)(barBtn, "rows-3");
+    (0, import_obsidian16.setIcon)(barBtn, "rows-3");
     const syncViewBtns = () => {
       squareBtn.toggleClass("is-active", this.cardSetView === "square");
       barBtn.toggleClass("is-active", this.cardSetView === "bar");
@@ -6046,6 +5990,10 @@ var AnnotationSidebarView = class extends import_obsidian17.ItemView {
     };
     mkState("remember");
     mkState("forget");
+    if (cards.length === 0) {
+      root.createDiv({ cls: "annocard-cs-empty", text: loc.cardReviewEmpty });
+      return;
+    }
     const groups = /* @__PURE__ */ new Map();
     for (const card of cards) {
       const arr = groups.get(card.notePath);
@@ -6103,6 +6051,7 @@ var AnnotationSidebarView = class extends import_obsidian17.ItemView {
     this.cardSetPopupCards = null;
   }
   renderCardSetPopup() {
+    var _a;
     const backdrop = this.cardSetPopupEl;
     const cards = this.cardSetPopupCards;
     if (!backdrop || !cards) return;
@@ -6116,57 +6065,138 @@ var AnnotationSidebarView = class extends import_obsidian17.ItemView {
       return;
     }
     const loc = t();
+    const msg = (card.annotation.isFullText || card.annotation.positions.length > 1) && card.annotation.positions.length > 1 ? loc.confirmDeleteMulti(card.annotation.positions.length) : loc.confirmDelete;
     popup.empty();
     const edge = popup.createDiv({ cls: "annocard-cs-edge" });
     const editNoteBtn = edge.createEl("button", { cls: "annocard-cs-edgebtn", attr: { "aria-label": loc.menuEditNote } });
-    (0, import_obsidian17.setIcon)(editNoteBtn, "pencil");
+    (0, import_obsidian16.setIcon)(editNoteBtn, "pencil");
+    editNoteBtn.toggleClass("is-active", this.cardSetEdit === "note");
     editNoteBtn.addEventListener("click", () => {
-      new EditNoteModal(
-        this.app,
-        () => this.plugin.settings,
-        { note: card.annotation.note, color: card.annotation.color },
-        async (note) => {
-          await this.fileManager.updateAnnotation(card.notePath, card.annotation.id, { note });
-          card.annotation.note = note;
-          new import_obsidian17.Notice(loc.noticeNoteUpdated);
-          await this.afterCardSetMutation();
-        }
-      ).open();
+      this.cardSetEdit = this.cardSetEdit === "note" ? "view" : "note";
+      this.renderCardSetPopup();
     });
     const editTagsBtn = edge.createEl("button", { cls: "annocard-cs-edgebtn", attr: { "aria-label": loc.tagEditTitle } });
-    (0, import_obsidian17.setIcon)(editTagsBtn, "tags");
+    (0, import_obsidian16.setIcon)(editTagsBtn, "tags");
+    editTagsBtn.toggleClass("is-active", this.cardSetEdit === "tags");
     editTagsBtn.addEventListener("click", () => {
-      var _a;
-      new TagEditModal(this.app, (_a = card.annotation.tags) != null ? _a : [], async (tags) => {
-        await this.fileManager.updateAnnotation(card.notePath, card.annotation.id, { tags });
-        card.annotation.tags = tags;
-        await this.afterCardSetMutation();
-      }).open();
+      this.cardSetEdit = this.cardSetEdit === "tags" ? "view" : "tags";
+      this.renderCardSetPopup();
     });
     const delBtn = edge.createEl("button", { cls: "annocard-cs-edgebtn annocard-cs-edgebtn-danger", attr: { "aria-label": loc.delete } });
-    (0, import_obsidian17.setIcon)(delBtn, "trash-2");
+    (0, import_obsidian16.setIcon)(delBtn, "trash-2");
+    delBtn.toggleClass("is-active", this.cardSetEdit === "delete");
     delBtn.addEventListener("click", () => {
-      const msg = (card.annotation.isFullText || card.annotation.positions.length > 1) && card.annotation.positions.length > 1 ? loc.confirmDeleteMulti(card.annotation.positions.length) : loc.confirmDelete;
-      new ConfirmOverwriteModal(this.app, msg, async () => {
-        const view = this.app.workspace.getActiveViewOfType(import_obsidian17.MarkdownView);
-        const deleted = view ? await editAnnotationInEditor(view, this.fileManager, card.notePath, card.annotation.id, "delete") : false;
-        if (!deleted) await this.fileManager.removeAnnotation(card.notePath, card.annotation.id);
-        new import_obsidian17.Notice(loc.noticeDeleted);
-        cards.splice(this.cardSetCursor, 1);
-        if (cards.length === 0) {
-          this.closeCardSetPopup();
-        } else {
-          if (this.cardSetCursor >= cards.length) this.cardSetCursor = cards.length - 1;
-          this.renderCardSetPopup();
-        }
-        await this.afterCardSetMutation();
-      }, loc.delete).open();
+      this.cardSetEdit = this.cardSetEdit === "delete" ? "view" : "delete";
+      this.renderCardSetPopup();
     });
     const head = popup.createDiv({ cls: "annocard-cs-head" });
     head.createSpan({ cls: "annocard-cs-index", text: this.cardSetCursor + 1 + " / " + cards.length });
     const closeBtn = head.createEl("button", { cls: "annocard-cs-close", text: "\xD7" });
-    closeBtn.addEventListener("click", () => this.closeCardSetPopup());
+    closeBtn.addEventListener("click", () => {
+      this.closeCardSetPopup();
+    });
     popup.createDiv({ cls: "annocard-cs-annotation", text: '"' + card.annotation.text + '"' });
+    const backToView = () => {
+      this.cardSetEdit = "view";
+      this.renderCardSetPopup();
+    };
+    if (this.cardSetEdit === "note") {
+      const editWrap = popup.createDiv({ cls: "annocard-cs-inline-edit" });
+      const ta = editWrap.createEl("textarea", { cls: "annocard-cs-note-input" });
+      ta.value = card.annotation.note;
+      const row = editWrap.createDiv({ cls: "annocard-cs-inline-actions" });
+      const cancelBtn = row.createEl("button", { cls: "annotation-btn annotation-btn-secondary", text: loc.cancel });
+      cancelBtn.addEventListener("click", backToView);
+      const saveBtn = row.createEl("button", { cls: "annotation-btn annotation-btn-primary mod-cta", text: loc.save });
+      saveBtn.addEventListener("click", () => {
+        void (async () => {
+          await this.fileManager.updateAnnotation(card.notePath, card.annotation.id, { note: ta.value });
+          card.annotation.note = ta.value;
+          new import_obsidian16.Notice(loc.noticeNoteUpdated);
+          this.cardSetEdit = "view";
+          await this.afterCardSetMutation();
+        })();
+      });
+      window.setTimeout(() => ta.focus(), 30);
+      return;
+    }
+    if (this.cardSetEdit === "tags") {
+      const editWrap = popup.createDiv({ cls: "annocard-cs-inline-edit" });
+      const tags = [...(_a = card.annotation.tags) != null ? _a : []];
+      const chipsRow = editWrap.createDiv({ cls: "annocard-cs-tags-edit" });
+      const renderChips = () => {
+        chipsRow.empty();
+        if (tags.length === 0) {
+          chipsRow.createDiv({ cls: "annocard-cs-note-text is-empty", text: loc.cardSetNoTags });
+        }
+        for (const tg of tags) {
+          const chip = chipsRow.createDiv({ cls: "annocard-cs-tag-chip" });
+          chip.createSpan({ text: tg });
+          const x = chip.createEl("button", { cls: "annocard-cs-tag-x", text: "\xD7" });
+          x.addEventListener("click", () => {
+            const i = tags.indexOf(tg);
+            if (i >= 0) tags.splice(i, 1);
+            renderChips();
+          });
+        }
+      };
+      renderChips();
+      const inputRow = editWrap.createDiv({ cls: "annocard-cs-tag-input-row" });
+      const input = inputRow.createEl("input", { cls: "annocard-tag-edit-input", type: "text", placeholder: loc.cardTagAddPlaceholder });
+      const addBtn = inputRow.createEl("button", { cls: "annotation-btn annotation-btn-secondary", text: loc.add });
+      const addTag = () => {
+        const v = input.value.trim();
+        if (v && !tags.includes(v)) tags.push(v);
+        input.value = "";
+        renderChips();
+      };
+      addBtn.addEventListener("click", addTag);
+      input.addEventListener("keydown", (e) => {
+        if (e.key === "Enter") {
+          e.preventDefault();
+          addTag();
+        }
+      });
+      const row = editWrap.createDiv({ cls: "annocard-cs-inline-actions" });
+      const cancelBtn = row.createEl("button", { cls: "annotation-btn annotation-btn-secondary", text: loc.cancel });
+      cancelBtn.addEventListener("click", backToView);
+      const saveBtn = row.createEl("button", { cls: "annotation-btn annotation-btn-primary mod-cta", text: loc.save });
+      saveBtn.addEventListener("click", () => {
+        void (async () => {
+          await this.fileManager.updateAnnotation(card.notePath, card.annotation.id, { tags });
+          card.annotation.tags = tags;
+          this.cardSetEdit = "view";
+          await this.afterCardSetMutation();
+        })();
+      });
+      return;
+    }
+    if (this.cardSetEdit === "delete") {
+      const editWrap = popup.createDiv({ cls: "annocard-cs-inline-edit annocard-cs-confirm" });
+      editWrap.createDiv({ cls: "annocard-cs-confirm-text", text: msg });
+      const row = editWrap.createDiv({ cls: "annocard-cs-inline-actions" });
+      const cancelBtn = row.createEl("button", { cls: "annotation-btn annotation-btn-secondary", text: loc.cancel });
+      cancelBtn.addEventListener("click", backToView);
+      const delConfirmBtn = row.createEl("button", { cls: "annotation-btn annotation-btn-danger", text: loc.delete });
+      delConfirmBtn.addEventListener("click", () => {
+        void (async () => {
+          const view = this.app.workspace.getActiveViewOfType(import_obsidian16.MarkdownView);
+          const deleted = view ? await editAnnotationInEditor(view, this.fileManager, card.notePath, card.annotation.id, "delete") : false;
+          if (!deleted) await this.fileManager.removeAnnotation(card.notePath, card.annotation.id);
+          new import_obsidian16.Notice(loc.noticeDeleted);
+          cards.splice(this.cardSetCursor, 1);
+          this.cardSetEdit = "view";
+          if (cards.length === 0) {
+            this.closeCardSetPopup();
+          } else {
+            if (this.cardSetCursor >= cards.length) this.cardSetCursor = cards.length - 1;
+            this.renderCardSetPopup();
+          }
+          await this.afterCardSetMutation();
+        })();
+      });
+      return;
+    }
     const noteBlock = popup.createDiv({ cls: "annocard-cs-note" });
     if (card.annotation.note) {
       noteBlock.createDiv({ cls: "annocard-cs-note-text", text: card.annotation.note });
@@ -6179,6 +6209,7 @@ var AnnotationSidebarView = class extends import_obsidian17.ItemView {
     prevBtn.addEventListener("click", () => {
       if (this.cardSetCursor > 0) {
         this.cardSetCursor--;
+        this.cardSetEdit = "view";
         this.renderCardSetPopup();
       }
     });
@@ -6193,6 +6224,7 @@ var AnnotationSidebarView = class extends import_obsidian17.ItemView {
     nextBtn.addEventListener("click", () => {
       if (this.cardSetCursor < cards.length - 1) {
         this.cardSetCursor++;
+        this.cardSetEdit = "view";
         this.renderCardSetPopup();
       }
     });
@@ -6200,13 +6232,14 @@ var AnnotationSidebarView = class extends import_obsidian17.ItemView {
   // 记住/忘记:持久化 archived + lastReviewedAt,同步本地,自动前进到下一张
   async markCardSetState(card, remembered) {
     const loc = t();
+    this.cardSetEdit = "view";
     try {
       await this.fileManager.updateAnnotation(card.notePath, card.annotation.id, {
         archived: remembered,
         lastReviewedAt: Date.now()
       });
       card.annotation.archived = remembered;
-      if (remembered) new import_obsidian17.Notice(loc.cardNoticeArchived, 1e3);
+      if (remembered) new import_obsidian16.Notice(loc.cardNoticeArchived, 1e3);
     } catch (e) {
       console.error("\u5361\u7247\u96C6\u6807\u8BB0\u4FDD\u5B58\u5931\u8D25:", e);
     }
@@ -6380,7 +6413,7 @@ var AnnotationSidebarView = class extends import_obsidian17.ItemView {
     var _a;
     if (this.allAnnotationsCache) return this.allAnnotationsCache;
     const pluginDir = (_a = this.plugin.manifest.dir) != null ? _a : `${this.app.vault.configDir}/plugins/obsidian-annotation-marker`;
-    const annotationsDir = (0, import_obsidian17.normalizePath)(`${pluginDir}/annotations`);
+    const annotationsDir = (0, import_obsidian16.normalizePath)(`${pluginDir}/annotations`);
     const exists = await this.app.vault.adapter.exists(annotationsDir);
     if (!exists) {
       this.allAnnotationsCache = [];
@@ -6397,7 +6430,7 @@ var AnnotationSidebarView = class extends import_obsidian17.ItemView {
         try {
           const notePath = annotationPathToNotePath(pluginDir, filePath);
           const originalFile = this.app.vault.getAbstractFileByPath(notePath);
-          if (!(originalFile instanceof import_obsidian17.TFile)) continue;
+          if (!(originalFile instanceof import_obsidian16.TFile)) continue;
           const annotations = await this.fileManager.getAnnotations(notePath);
           const fileName = originalFile.name;
           for (const annotation of annotations) {
@@ -6455,7 +6488,7 @@ var AnnotationSidebarView = class extends import_obsidian17.ItemView {
     this.app.workspace.iterateAllLeaves((leaf) => {
       var _a;
       const view = leaf.view;
-      if (view instanceof import_obsidian17.MarkdownView && ((_a = view.file) == null ? void 0 : _a.path) === annotationPath) {
+      if (view instanceof import_obsidian16.MarkdownView && ((_a = view.file) == null ? void 0 : _a.path) === annotationPath) {
         result = view;
       }
     });
@@ -6483,8 +6516,8 @@ var AnnotationSidebarView = class extends import_obsidian17.ItemView {
     }
     if (!targetLeaf) {
       const file = this.app.vault.getAbstractFileByPath(notePath);
-      if (!(file instanceof import_obsidian17.TFile)) {
-        new import_obsidian17.Notice(t().noticeNoteFileNotFound);
+      if (!(file instanceof import_obsidian16.TFile)) {
+        new import_obsidian16.Notice(t().noticeNoteFileNotFound);
         return;
       }
       let leaf = this.app.workspace.getLeaf(false);
@@ -6537,7 +6570,7 @@ var AnnotationSidebarView = class extends import_obsidian17.ItemView {
         }
         await this.plugin.refreshAnnotationView(notePath);
         void this.renderCards();
-        new import_obsidian17.Notice(loc.noticeDeleted);
+        new import_obsidian16.Notice(loc.noticeDeleted);
       },
       loc.delete
     ).open();
@@ -6548,7 +6581,7 @@ var AnnotationSidebarView = class extends import_obsidian17.ItemView {
     const loc = t();
     const cards = await this.loadCurrentFileAnnotations();
     if (cards.length === 0) {
-      new import_obsidian17.Notice(loc.noData);
+      new import_obsidian16.Notice(loc.noData);
       return;
     }
     const sortOption = this.sortOption === "by-note" ? "position-asc" : this.sortOption;
@@ -6563,22 +6596,22 @@ var AnnotationSidebarView = class extends import_obsidian17.ItemView {
       const activeFile = this.app.workspace.getActiveFile();
       const noteName = (_b = (_a2 = activeFile == null ? void 0 : activeFile.name) == null ? void 0 : _a2.replace(/\.md$/, "")) != null ? _b : "";
       new FileNameModal(this.app, noteName, async (fileName) => {
-        const filePath = (0, import_obsidian17.normalizePath)(folderPath && folderPath !== "/" ? `${folderPath}/${fileName}` : fileName);
+        const filePath = (0, import_obsidian16.normalizePath)(folderPath && folderPath !== "/" ? `${folderPath}/${fileName}` : fileName);
         const existing = this.app.vault.getAbstractFileByPath(filePath);
         const doWrite = async () => {
           try {
-            if (existing instanceof import_obsidian17.TFile) {
+            if (existing instanceof import_obsidian16.TFile) {
               await this.app.vault.modify(existing, content);
             } else {
               await this.app.vault.create(filePath, content);
             }
-            new import_obsidian17.Notice(loc.noticeExportSuccess(annotations.length));
+            new import_obsidian16.Notice(loc.noticeExportSuccess(annotations.length));
           } catch (e) {
             console.error("\u5BFC\u51FA\u5931\u8D25:", e);
-            new import_obsidian17.Notice(loc.noticeExportFailed);
+            new import_obsidian16.Notice(loc.noticeExportFailed);
           }
         };
-        if (existing instanceof import_obsidian17.TFile) {
+        if (existing instanceof import_obsidian16.TFile) {
           new ConfirmOverwriteModal(
             this.app,
             `${loc.exportConfirmOverwrite}
@@ -6601,7 +6634,7 @@ ${loc.exportConfirmOverwriteDesc}`,
 };
 
 // src/importer/oldAnnotationImporter.ts
-var import_obsidian18 = require("obsidian");
+var import_obsidian17 = require("obsidian");
 var OLD_TO_NEW_COLOR = {
   "red": "1",
   "blue": "2",
@@ -6611,7 +6644,7 @@ var OLD_TO_NEW_COLOR = {
   "none": "none"
 };
 async function preScanOldAnnotations(app, pluginDir) {
-  const annotationsDir = (0, import_obsidian18.normalizePath)(`${pluginDir}/annotations`);
+  const annotationsDir = (0, import_obsidian17.normalizePath)(`${pluginDir}/annotations`);
   if (!await app.vault.adapter.exists(annotationsDir)) {
     return { fileCount: 0, annotationCount: 0 };
   }
@@ -6642,7 +6675,7 @@ async function importOldAnnotations(app, fileManager, pluginDir) {
     failed: 0,
     errors: []
   };
-  const annotationsDir = (0, import_obsidian18.normalizePath)(`${pluginDir}/annotations`);
+  const annotationsDir = (0, import_obsidian17.normalizePath)(`${pluginDir}/annotations`);
   if (!await app.vault.adapter.exists(annotationsDir)) {
     return result;
   }
@@ -6787,8 +6820,8 @@ function resolveOccurrence(content, text, contextBefore, startLine, endLine) {
 }
 
 // src/importer/ImportConfirmModal.ts
-var import_obsidian19 = require("obsidian");
-var ImportConfirmModal = class extends import_obsidian19.Modal {
+var import_obsidian18 = require("obsidian");
+var ImportConfirmModal = class extends import_obsidian18.Modal {
   constructor(app, fileManager, pluginDir, scan) {
     super(app);
     this.fileManager = fileManager;
@@ -6880,7 +6913,7 @@ var ImportConfirmModal = class extends import_obsidian19.Modal {
 
 // src/main.ts
 var MOBILE_SELECTION_DEBOUNCE_MS = 600;
-var AnnotationPlugin = class extends import_obsidian20.Plugin {
+var AnnotationPlugin = class extends import_obsidian19.Plugin {
   constructor() {
     super(...arguments);
     // 原始文件路径 → 标注文件路径的映射
@@ -7008,7 +7041,7 @@ var AnnotationPlugin = class extends import_obsidian20.Plugin {
         this.app.workspace.iterateAllLeaves((leaf) => {
           var _a;
           const view = leaf.view;
-          if (view instanceof import_obsidian20.MarkdownView && ((_a = view.file) == null ? void 0 : _a.path) === annotationPath) tabCount++;
+          if (view instanceof import_obsidian19.MarkdownView && ((_a = view.file) == null ? void 0 : _a.path) === annotationPath) tabCount++;
         });
         countData[originalPath] = tabCount;
       }
@@ -7040,7 +7073,7 @@ var AnnotationPlugin = class extends import_obsidian20.Plugin {
       if (!annotationPath) continue;
       const originalFile = this.app.vault.getAbstractFileByPath(originalPath);
       const annotationExists = await this.app.vault.adapter.exists(annotationPath);
-      if (!annotationExists || !(originalFile instanceof import_obsidian20.TFile)) continue;
+      if (!annotationExists || !(originalFile instanceof import_obsidian19.TFile)) continue;
       const fakeTFile = this.createFakeTFile(annotationPath);
       this.injectMetadataCache(annotationPath, originalPath, fakeTFile);
       this.activeAnnotationSessions.set(originalPath, annotationPath);
@@ -7120,7 +7153,7 @@ var AnnotationPlugin = class extends import_obsidian20.Plugin {
   updateAnnotationTabTitle(leaf, originalPath) {
     var _a;
     const originalFile = this.app.vault.getAbstractFileByPath(originalPath);
-    const displayName = originalFile instanceof import_obsidian20.TFile ? originalFile.basename : (_a = originalPath.replace(/\.md$/, "").split("/").pop()) != null ? _a : originalPath;
+    const displayName = originalFile instanceof import_obsidian19.TFile ? originalFile.basename : (_a = originalPath.replace(/\.md$/, "").split("/").pop()) != null ? _a : originalPath;
     const tabTitle = t().annotationViewTitle(displayName);
     window.requestAnimationFrame(() => {
       var _a2;
@@ -7307,7 +7340,7 @@ var AnnotationPlugin = class extends import_obsidian20.Plugin {
   }
   getSavedScroll(leaf) {
     const view = leaf.view;
-    if (view instanceof import_obsidian20.MarkdownView) {
+    if (view instanceof import_obsidian19.MarkdownView) {
       const currentMode = view.currentMode;
       if (currentMode == null ? void 0 : currentMode.getScroll) {
         const scroll = currentMode.getScroll();
@@ -7336,16 +7369,16 @@ var AnnotationPlugin = class extends import_obsidian20.Plugin {
     return null;
   }
   getActiveAnnotationNotePath() {
-    const view = this.app.workspace.getActiveViewOfType(import_obsidian20.MarkdownView);
+    const view = this.app.workspace.getActiveViewOfType(import_obsidian19.MarkdownView);
     const currentFile = view == null ? void 0 : view.file;
     if (!currentFile) return null;
     return this.getOriginalPathByAnnotationPath(currentFile.path);
   }
   async toggleAnnotationView() {
-    const view = this.app.workspace.getActiveViewOfType(import_obsidian20.MarkdownView);
+    const view = this.app.workspace.getActiveViewOfType(import_obsidian19.MarkdownView);
     const currentFile = view == null ? void 0 : view.file;
     if (!currentFile) {
-      new import_obsidian20.Notice(t().noticeNoFile);
+      new import_obsidian19.Notice(t().noticeNoFile);
       return;
     }
     const leaf = this.app.workspace.getLeaf(false);
@@ -7360,10 +7393,10 @@ var AnnotationPlugin = class extends import_obsidian20.Plugin {
     const savedScroll = this.getSavedScroll(leaf);
     const ok = await this.fileManager.ensureAnnotationFile(notePath);
     if (!ok) {
-      new import_obsidian20.Notice(t().noticeFileCreateFailed);
+      new import_obsidian19.Notice(t().noticeFileCreateFailed);
       return;
     }
-    const annotationPath = (0, import_obsidian20.normalizePath)(this.fileManager.getAnnotationFilePath(notePath));
+    const annotationPath = (0, import_obsidian19.normalizePath)(this.fileManager.getAnnotationFilePath(notePath));
     const existingFake = this.app.vault.fileMap[annotationPath];
     const fakeTFile = existingFake != null ? existingFake : this.createFakeTFile(annotationPath);
     const isNewSession = !this.activeAnnotationSessions.has(notePath);
@@ -7383,7 +7416,7 @@ var AnnotationPlugin = class extends import_obsidian20.Plugin {
       await this.saveSettings();
     } catch (e) {
       console.error("[\u6807\u6CE8] openFile \u5931\u8D25:", e);
-      new import_obsidian20.Notice(t().noticeOpenFailed + (e instanceof Error ? e.message : String(e)));
+      new import_obsidian19.Notice(t().noticeOpenFailed + (e instanceof Error ? e.message : String(e)));
     }
   }
   async closeAnnotationView(leaf, originalPath) {
@@ -7391,8 +7424,8 @@ var AnnotationPlugin = class extends import_obsidian20.Plugin {
     const savedScroll = this.getSavedScroll(leaf);
     const annotationPath = this.activeAnnotationSessions.get(originalPath);
     const originalFile = this.app.vault.getAbstractFileByPath(originalPath);
-    if (!(originalFile instanceof import_obsidian20.TFile)) {
-      new import_obsidian20.Notice(t().noticeOriginalMissing);
+    if (!(originalFile instanceof import_obsidian19.TFile)) {
+      new import_obsidian19.Notice(t().noticeOriginalMissing);
       if (annotationPath && !this.hasOtherLeafWithFile(leaf, annotationPath)) {
         this.removeFakeTFile(annotationPath);
         this.removeMetadataCache(annotationPath);
@@ -7443,7 +7476,7 @@ var AnnotationPlugin = class extends import_obsidian20.Plugin {
   // ========== 标注交互事件 ==========
   registerAnnotationInteraction() {
     this.registerMarkClickInteraction();
-    if (import_obsidian20.Platform.isMobile) {
+    if (import_obsidian19.Platform.isMobile) {
       this.registerMobileSelectionEntry();
     } else {
       this.registerDesktopMouseupEntry();
@@ -7506,7 +7539,7 @@ var AnnotationPlugin = class extends import_obsidian20.Plugin {
     if (!startEl || !endEl) return;
     const excludedSelf = ".annotation-card-menu, .modal-container, input, textarea";
     if (startEl.closest(excludedSelf) || endEl.closest(excludedSelf)) return;
-    const view = this.app.workspace.getActiveViewOfType(import_obsidian20.MarkdownView);
+    const view = this.app.workspace.getActiveViewOfType(import_obsidian19.MarkdownView);
     const cmDom = (_b = (_a = view == null ? void 0 : view.editor) == null ? void 0 : _a.cm) == null ? void 0 : _b.dom;
     const validContainers = [(_c = view == null ? void 0 : view.previewMode) == null ? void 0 : _c.containerEl, cmDom];
     const inNoteContainer = validContainers.some(
@@ -7544,7 +7577,7 @@ var AnnotationPlugin = class extends import_obsidian20.Plugin {
   // 编辑模式（source/Live Preview）下保存编辑器选区位置，供 replaceRange 局部替换路径使用
   collectEditorRange() {
     var _a;
-    const view = this.app.workspace.getActiveViewOfType(import_obsidian20.MarkdownView);
+    const view = this.app.workspace.getActiveViewOfType(import_obsidian19.MarkdownView);
     if (((_a = view == null ? void 0 : view.getMode) == null ? void 0 : _a.call(view)) === "source" && view.editor) {
       return { from: view.editor.getCursor("from"), to: view.editor.getCursor("to") };
     }
@@ -7577,7 +7610,7 @@ var AnnotationPlugin = class extends import_obsidian20.Plugin {
       const target = e.target;
       const markEl = target.closest("mark[data-annotation-id]");
       if (!markEl) return;
-      const view = this.app.workspace.getActiveViewOfType(import_obsidian20.MarkdownView);
+      const view = this.app.workspace.getActiveViewOfType(import_obsidian19.MarkdownView);
       const isSourceMode = (view == null ? void 0 : view.getMode()) === "source";
       if (!isSourceMode) {
         const previewContainer = (_a = view == null ? void 0 : view.previewMode) == null ? void 0 : _a.containerEl;
@@ -7632,7 +7665,7 @@ var AnnotationPlugin = class extends import_obsidian20.Plugin {
       const startCallout = startEl == null ? void 0 : startEl.closest(".callout");
       const endCallout = endEl == null ? void 0 : endEl.closest(".callout");
       if (startCallout !== endCallout) {
-        new import_obsidian20.Notice(t().noticeNoCrossCallout);
+        new import_obsidian19.Notice(t().noticeNoCrossCallout);
         return null;
       }
     }
@@ -7676,17 +7709,17 @@ var AnnotationPlugin = class extends import_obsidian20.Plugin {
       await this.selectionMenu.annotateWithColor(color);
       return;
     }
-    const view = this.app.workspace.getActiveViewOfType(import_obsidian20.MarkdownView);
+    const view = this.app.workspace.getActiveViewOfType(import_obsidian19.MarkdownView);
     if (((_a = view == null ? void 0 : view.getMode) == null ? void 0 : _a.call(view)) === "source" && view.editor) {
       const text = view.editor.getSelection();
       if (!text) {
-        new import_obsidian20.Notice(loc.noticeNoSelection);
+        new import_obsidian19.Notice(loc.noticeNoSelection);
         return;
       }
       const from = view.editor.getCursor("from");
       const to = view.editor.getCursor("to");
       if (from.line !== to.line) {
-        new import_obsidian20.Notice(loc.noticeMultiLineSelection);
+        new import_obsidian19.Notice(loc.noticeMultiLineSelection);
         return;
       }
       await this.selectionMenu.annotateDirectly({
@@ -7700,18 +7733,18 @@ var AnnotationPlugin = class extends import_obsidian20.Plugin {
     }
     const selection = window.getSelection();
     if (!selection || selection.isCollapsed || !selection.rangeCount) {
-      new import_obsidian20.Notice(loc.noticeNoSelection);
+      new import_obsidian19.Notice(loc.noticeNoSelection);
       return;
     }
     const info = this.collectSelectionParams(selection);
     if (!info) {
-      new import_obsidian20.Notice(loc.noticeNoSelection);
+      new import_obsidian19.Notice(loc.noticeNoSelection);
       return;
     }
     await this.selectionMenu.annotateDirectly({ ...info, notePath, color, onAdd });
   }
   setupAnnotationListPanel(notePath, leaf) {
-    const view = leaf.view instanceof import_obsidian20.MarkdownView ? leaf.view : null;
+    const view = leaf.view instanceof import_obsidian19.MarkdownView ? leaf.view : null;
     if (!view) return;
     const oldPanel = this.annotationPanels.get(leaf);
     if (oldPanel) {
@@ -7736,7 +7769,7 @@ var AnnotationPlugin = class extends import_obsidian20.Plugin {
       this.app.workspace.iterateAllLeaves((leaf) => {
         var _a2;
         const v = leaf.view;
-        if (v instanceof import_obsidian20.MarkdownView && ((_a2 = v.file) == null ? void 0 : _a2.path) === annotationPath) {
+        if (v instanceof import_obsidian19.MarkdownView && ((_a2 = v.file) == null ? void 0 : _a2.path) === annotationPath) {
           leaves.push(leaf);
         }
       });
@@ -7852,7 +7885,7 @@ var AnnotationPlugin = class extends import_obsidian20.Plugin {
         if (/^(https?:|data:|app:|obsidian:|capacitor:)/i.test(rawSrc)) continue;
         if (!/(?:^|[\\/])\.\.(?:[\\/]|$)/.test(rawSrc)) continue;
         const target = this.app.metadataCache.getFirstLinkpathDest(rawSrc, originalPath);
-        if (!(target instanceof import_obsidian20.TFile)) continue;
+        if (!(target instanceof import_obsidian19.TFile)) continue;
         embed.setAttribute("src", target.path);
         embed.dataset.imageFixed = "1";
       }
@@ -7867,7 +7900,7 @@ var AnnotationPlugin = class extends import_obsidian20.Plugin {
         const footnotesSection = el.querySelector("section.footnotes");
         if (footnotesSection) {
           const file = this.app.vault.getAbstractFileByPath(ctx.sourcePath);
-          if (file instanceof import_obsidian20.TFile) {
+          if (file instanceof import_obsidian19.TFile) {
             const cache = this.app.metadataCache.getFileCache(file);
             const footnotes = cache == null ? void 0 : cache.footnotes;
             if (footnotes && footnotes.length > 0) {
@@ -7964,7 +7997,7 @@ var AnnotationPlugin = class extends import_obsidian20.Plugin {
         if (!hasFile) return;
         const annotations = await this.fileManager.getAnnotations(file.path);
         if (annotations.length === 0) return;
-        const view = this.app.workspace.getActiveViewOfType(import_obsidian20.MarkdownView);
+        const view = this.app.workspace.getActiveViewOfType(import_obsidian19.MarkdownView);
         if (((_a = view == null ? void 0 : view.file) == null ? void 0 : _a.path) === file.path) {
           await this.openAnnotationView(this.app.workspace.getLeaf(false), file.path);
         }
@@ -7972,7 +8005,7 @@ var AnnotationPlugin = class extends import_obsidian20.Plugin {
     );
     this.registerEvent(
       this.app.vault.on("modify", (file) => {
-        if (!(file instanceof import_obsidian20.TFile) || file.extension !== "md") return;
+        if (!(file instanceof import_obsidian19.TFile) || file.extension !== "md") return;
         const notePath = file.path;
         if (!this.activeAnnotationSessions.has(notePath)) return;
         const timer = this.externalSyncTimers.get(notePath);
@@ -7985,7 +8018,7 @@ var AnnotationPlugin = class extends import_obsidian20.Plugin {
     );
     this.registerEvent(
       this.app.vault.on("rename", async (file, oldPath) => {
-        if (file instanceof import_obsidian20.TFile && file.extension === "md") {
+        if (file instanceof import_obsidian19.TFile && file.extension === "md") {
           try {
             await this.fileManager.migrateAnnotationFile(oldPath, file.path);
           } catch (e) {
@@ -7995,7 +8028,7 @@ var AnnotationPlugin = class extends import_obsidian20.Plugin {
           if (annotationPath) {
             this.removeFakeTFile(annotationPath);
             this.removeMetadataCache(annotationPath);
-            const newAnnotationPath = (0, import_obsidian20.normalizePath)(
+            const newAnnotationPath = (0, import_obsidian19.normalizePath)(
               this.fileManager.getAnnotationFilePath(file.path)
             );
             const newFakeTFile = this.createFakeTFile(newAnnotationPath);
@@ -8027,7 +8060,7 @@ var AnnotationPlugin = class extends import_obsidian20.Plugin {
     );
     this.registerEvent(
       this.app.vault.on("delete", async (file) => {
-        if (file instanceof import_obsidian20.TFile && file.extension === "md") {
+        if (file instanceof import_obsidian19.TFile && file.extension === "md") {
           try {
             await this.fileManager.deleteAnnotationFile(file.path);
           } catch (e) {
@@ -8068,7 +8101,7 @@ var AnnotationPlugin = class extends import_obsidian20.Plugin {
       id: "toggle-annotation-view",
       name: t().commandToggleView,
       checkCallback: (checking) => {
-        const view = this.app.workspace.getActiveViewOfType(import_obsidian20.MarkdownView);
+        const view = this.app.workspace.getActiveViewOfType(import_obsidian19.MarkdownView);
         const file = view == null ? void 0 : view.file;
         if (!file || file.extension !== "md") return false;
         if (!checking) {
@@ -8106,7 +8139,7 @@ var AnnotationPlugin = class extends import_obsidian20.Plugin {
         const pluginDir = (_a = this.manifest.dir) != null ? _a : `${this.app.vault.configDir}/plugins/obsidian-annotation-marker`;
         const scan = await preScanOldAnnotations(this.app, pluginDir);
         if (scan.fileCount === 0) {
-          new import_obsidian20.Notice(t().noticeNoLegacyData);
+          new import_obsidian19.Notice(t().noticeNoLegacyData);
           return;
         }
         new ImportConfirmModal(this.app, this.fileManager, pluginDir, scan).open();
@@ -8152,12 +8185,12 @@ var AnnotationPlugin = class extends import_obsidian20.Plugin {
     const loc = t();
     const hasFile = await this.fileManager.hasAnnotationFile(notePath);
     if (!hasFile) {
-      new import_obsidian20.Notice(loc.noData);
+      new import_obsidian19.Notice(loc.noData);
       return;
     }
     const annotations = await this.fileManager.getAnnotations(notePath);
     if (annotations.length === 0) {
-      new import_obsidian20.Notice(loc.noData);
+      new import_obsidian19.Notice(loc.noData);
       return;
     }
     const sorted = sortAnnotations(annotations, "position-asc");
@@ -8165,19 +8198,19 @@ var AnnotationPlugin = class extends import_obsidian20.Plugin {
     const exportFolder = (_a = this.settings.exportFolder) == null ? void 0 : _a.trim();
     const doExport = (folderPath) => {
       const originalFile = this.app.vault.getAbstractFileByPath(notePath);
-      const noteName = originalFile instanceof import_obsidian20.TFile ? originalFile.name.replace(/\.md$/, "") : "";
+      const noteName = originalFile instanceof import_obsidian19.TFile ? originalFile.name.replace(/\.md$/, "") : "";
       new FileNameModal(this.app, noteName, async (fileName) => {
-        const filePath = (0, import_obsidian20.normalizePath)(folderPath && folderPath !== "/" ? `${folderPath}/${fileName}` : fileName);
+        const filePath = (0, import_obsidian19.normalizePath)(folderPath && folderPath !== "/" ? `${folderPath}/${fileName}` : fileName);
         const existing = this.app.vault.getAbstractFileByPath(filePath);
         const doWrite = async () => {
-          if (existing instanceof import_obsidian20.TFile) {
+          if (existing instanceof import_obsidian19.TFile) {
             await this.app.vault.modify(existing, content);
           } else {
             await this.app.vault.create(filePath, content);
           }
-          new import_obsidian20.Notice(loc.noticeExportSuccess(sorted.length));
+          new import_obsidian19.Notice(loc.noticeExportSuccess(sorted.length));
         };
-        if (existing instanceof import_obsidian20.TFile) {
+        if (existing instanceof import_obsidian19.TFile) {
           new ConfirmOverwriteModal(
             this.app,
             `${loc.exportConfirmOverwrite}

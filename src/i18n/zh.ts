@@ -155,6 +155,7 @@ export const zhCN: LocaleDict = {
   cardSetOrderAsc: "正序",
   cardSetOrderDesc: "倒序",
   cardSetNoNote: "无批注",
+  cardSetNoTags: "无标签",
   tagEditTitle: "编辑标签",
   cardReviewStat: (n: number, r: number, f: number) => `共 ${n} 张,记住 ${r} 张,忘记 ${f} 张`,
   cardReviewProgress: (cur: number, total: number) => `${cur} / ${total}`,

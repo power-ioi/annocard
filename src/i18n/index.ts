@@ -157,6 +157,7 @@ export interface LocaleDict {
   cardSetOrderAsc: string;
   cardSetOrderDesc: string;
   cardSetNoNote: string;
+  cardSetNoTags: string;
   tagEditTitle: string;
   cardReviewStat: (n: number, r: number, f: number) => string;
   cardReviewProgress: (cur: number, total: number) => string;
