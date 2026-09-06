@@ -2802,6 +2802,10 @@
 .annotation-sidebar-card-list.annocard-cards-collapsed .annocard-card-tags:not(:has(.annocard-tag-input)) {
   display: none;
 }
+/* 折叠模式下同时隐藏卡片底部操作按钮行（编辑/打开/删除/标签） */
+.annotation-sidebar-card-list.annocard-cards-collapsed .annotation-sidebar-card-actions {
+  display: none;
+}
 
 /* 空批注占位（无批注内容时不显示，编辑按钮仍常驻） */
 .annotation-sidebar-card-note.annocard-note-empty {

@@ -5828,12 +5828,13 @@ var AnnotationSidebarView = class extends import_obsidian16.ItemView {
   async refresh() {
     var _a;
     this.allAnnotationsCache = null;
-    await this.renderCards();
+    await this.renderCards({ preserveScroll: true });
     const activeFile = this.app.workspace.getActiveFile();
     this.lastRefreshedNotePath = (_a = activeFile == null ? void 0 : activeFile.path) != null ? _a : null;
   }
-  async renderCards() {
+  async renderCards(opts = {}) {
     if (!this.cardListEl) return;
+    const savedScroll = opts.preserveScroll ? this.cardListEl.scrollTop : 0;
     if (this.colorFilter !== "all" && !getActiveColors(this.plugin.settings).includes(this.colorFilter)) {
       this.colorFilter = "all";
       this.updateColorBtnState();
@@ -5863,6 +5864,13 @@ var AnnotationSidebarView = class extends import_obsidian16.ItemView {
     this.cachedSortedCards = sorted;
     this.renderedCount = 0;
     this.renderNextPage();
+    if (savedScroll > 0 && this.cachedSortedCards.length > 0) {
+      let guard = 0;
+      while (this.renderedCount < this.cachedSortedCards.length && this.cardListEl.scrollHeight < savedScroll + this.cardListEl.clientHeight && guard++ < 50) {
+        this.renderNextPage();
+      }
+      this.cardListEl.scrollTop = savedScroll;
+    }
   }
   // 构建当前筛选状态(供 applyCardFilter 用)
   buildFilterState() {

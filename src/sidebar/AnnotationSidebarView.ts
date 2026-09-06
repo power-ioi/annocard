@@ -743,13 +743,17 @@ export class AnnotationSidebarView extends ItemView {
 
   async refresh(): Promise<void> {
     this.allAnnotationsCache = null;
-    await this.renderCards();
+    // 数据变更(加批注/标签、批量操作、复习退出等)后的刷新保持滚动位置,
+    // 避免卡片流跳回顶部;筛选/搜索/排序路径直接调 renderCards 仍回顶部
+    await this.renderCards({ preserveScroll: true });
     const activeFile = this.app.workspace.getActiveFile();
     this.lastRefreshedNotePath = activeFile?.path ?? null;
   }
 
-  private async renderCards(): Promise<void> {
+  private async renderCards(opts: { preserveScroll?: boolean } = {}): Promise<void> {
     if (!this.cardListEl) return;
+    // 在 empty() 前捕获滚动位置(仅 preserveScroll 时)
+    const savedScroll = opts.preserveScroll ? this.cardListEl.scrollTop : 0;
 
     // 筛选色可能指向已删除（停用）的颜色，重置为全部
     if (this.colorFilter !== "all" && !getActiveColors(this.plugin.settings).includes(this.colorFilter)) {
@@ -794,6 +798,19 @@ export class AnnotationSidebarView extends ItemView {
     this.cachedSortedCards = sorted;
     this.renderedCount = 0;
     this.renderNextPage();
+
+    // 恢复刷新前的滚动位置:若原位置超出首屏高度,继续补渲染后续页直到覆盖
+    if (savedScroll > 0 && this.cachedSortedCards.length > 0) {
+      let guard = 0;
+      while (
+        this.renderedCount < this.cachedSortedCards.length &&
+        this.cardListEl.scrollHeight < savedScroll + this.cardListEl.clientHeight &&
+        guard++ < 50
+      ) {
+        this.renderNextPage();
+      }
+      this.cardListEl.scrollTop = savedScroll;
+    }
   }
 
   // 构建当前筛选状态(供 applyCardFilter 用)
