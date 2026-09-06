@@ -3187,12 +3187,10 @@
   padding: 14px 14px 12px;
   box-shadow: 0 12px 40px rgba(0, 0, 0, 0.4);
 }
-.annocard-cs-edge {
-  position: absolute;
-  top: 40px;
-  right: 8px;
+.annocard-cs-head-actions {
+  margin-left: auto;
   display: flex;
-  flex-direction: column;
+  align-items: center;
   gap: 6px;
 }
 .annocard-cs-edgebtn {
@@ -3239,7 +3237,7 @@
   color: var(--text-normal);
 }
 .annocard-cs-annotation {
-  padding: 10px 40px 10px 12px;
+  padding: 10px 12px;
   border-radius: 8px;
   background: var(--background-secondary);
   border-left: 3px solid var(--interactive-accent);
@@ -3348,7 +3346,6 @@
 /* 小弹窗就地编辑 */
 .annocard-cs-inline-edit {
   margin-bottom: 12px;
-  padding-right: 40px;
 }
 .annocard-cs-note-input {
   width: 100%;

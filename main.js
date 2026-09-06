@@ -6067,35 +6067,41 @@ var AnnotationSidebarView = class extends import_obsidian16.ItemView {
     const loc = t();
     const msg = (card.annotation.isFullText || card.annotation.positions.length > 1) && card.annotation.positions.length > 1 ? loc.confirmDeleteMulti(card.annotation.positions.length) : loc.confirmDelete;
     popup.empty();
-    const edge = popup.createDiv({ cls: "annocard-cs-edge" });
-    const editNoteBtn = edge.createEl("button", { cls: "annocard-cs-edgebtn", attr: { "aria-label": loc.menuEditNote } });
+    const head = popup.createDiv({ cls: "annocard-cs-head" });
+    head.createSpan({ cls: "annocard-cs-index", text: this.cardSetCursor + 1 + " / " + cards.length });
+    const headActions = head.createDiv({ cls: "annocard-cs-head-actions" });
+    const editNoteBtn = headActions.createEl("button", { cls: "annocard-cs-edgebtn", attr: { "aria-label": loc.menuEditNote } });
     (0, import_obsidian16.setIcon)(editNoteBtn, "pencil");
     editNoteBtn.toggleClass("is-active", this.cardSetEdit === "note");
     editNoteBtn.addEventListener("click", () => {
       this.cardSetEdit = this.cardSetEdit === "note" ? "view" : "note";
       this.renderCardSetPopup();
     });
-    const editTagsBtn = edge.createEl("button", { cls: "annocard-cs-edgebtn", attr: { "aria-label": loc.tagEditTitle } });
+    const editTagsBtn = headActions.createEl("button", { cls: "annocard-cs-edgebtn", attr: { "aria-label": loc.tagEditTitle } });
     (0, import_obsidian16.setIcon)(editTagsBtn, "tags");
     editTagsBtn.toggleClass("is-active", this.cardSetEdit === "tags");
     editTagsBtn.addEventListener("click", () => {
       this.cardSetEdit = this.cardSetEdit === "tags" ? "view" : "tags";
       this.renderCardSetPopup();
     });
-    const delBtn = edge.createEl("button", { cls: "annocard-cs-edgebtn annocard-cs-edgebtn-danger", attr: { "aria-label": loc.delete } });
+    const delBtn = headActions.createEl("button", { cls: "annocard-cs-edgebtn annocard-cs-edgebtn-danger", attr: { "aria-label": loc.delete } });
     (0, import_obsidian16.setIcon)(delBtn, "trash-2");
     delBtn.toggleClass("is-active", this.cardSetEdit === "delete");
     delBtn.addEventListener("click", () => {
       this.cardSetEdit = this.cardSetEdit === "delete" ? "view" : "delete";
       this.renderCardSetPopup();
     });
-    const head = popup.createDiv({ cls: "annocard-cs-head" });
-    head.createSpan({ cls: "annocard-cs-index", text: this.cardSetCursor + 1 + " / " + cards.length });
-    const closeBtn = head.createEl("button", { cls: "annocard-cs-close", text: "\xD7" });
+    const closeBtn = headActions.createEl("button", { cls: "annocard-cs-close", text: "\xD7" });
     closeBtn.addEventListener("click", () => {
       this.closeCardSetPopup();
     });
-    popup.createDiv({ cls: "annocard-cs-annotation", text: '"' + card.annotation.text + '"' });
+    const annotationBlock = popup.createDiv({ cls: "annocard-cs-annotation", text: '"' + card.annotation.text + '"' });
+    const bgColor = COLOR_BG_VARS[card.annotation.color];
+    const accentColor = COLOR_ACCENT_VARS[card.annotation.color];
+    annotationBlock.setCssStyles({
+      background: bgColor != null ? bgColor : "transparent",
+      borderLeft: "3px solid " + (accentColor != null ? accentColor : "var(--interactive-accent)")
+    });
     const backToView = () => {
       this.cardSetEdit = "view";
       this.renderCardSetPopup();

@@ -1,6 +1,6 @@
 import { ItemView, MarkdownView, Notice, normalizePath, setIcon, TFile, WorkspaceLeaf } from "obsidian";
 import type { AnnotationColor, ParsedAnnotation } from "../types";
-import { COLOR_CLASSES, COLOR_ACCENT_VARS, getActiveColors } from "../constants";
+import { COLOR_CLASSES, COLOR_BG_VARS, COLOR_ACCENT_VARS, getActiveColors } from "../constants";
 import { annotationPathToNotePath, getViewFilePath } from "../utils/helpers";
 import { AnnotationFileManager } from "../annotationFile/AnnotationFileManager";
 import { editAnnotationInEditor } from "../utils/annotationEditorHelper";
@@ -986,9 +986,11 @@ this.closeCardSetOverlay();
       : loc.confirmDelete;
     popup.empty();
 
-    // 右缘操作:编辑批注 / 编辑标签 / 删除(就地切换编辑模式,不开新弹窗)
-    const edge = popup.createDiv({ cls: "annocard-cs-edge" });
-    const editNoteBtn = edge.createEl("button", { cls: "annocard-cs-edgebtn", attr: { "aria-label": loc.menuEditNote } });
+    // 头部:进度 + 编辑批注/编辑标签/删除 + 关闭(同一行)
+    const head = popup.createDiv({ cls: "annocard-cs-head" });
+    head.createSpan({ cls: "annocard-cs-index", text: (this.cardSetCursor + 1) + " / " + cards.length });
+    const headActions = head.createDiv({ cls: "annocard-cs-head-actions" });
+    const editNoteBtn = headActions.createEl("button", { cls: "annocard-cs-edgebtn", attr: { "aria-label": loc.menuEditNote } });
     setIcon(editNoteBtn, "pencil");
     editNoteBtn.toggleClass("is-active", this.cardSetEdit === "note");
     editNoteBtn.addEventListener("click", () => {
@@ -996,7 +998,7 @@ this.closeCardSetOverlay();
       this.renderCardSetPopup();
     });
 
-    const editTagsBtn = edge.createEl("button", { cls: "annocard-cs-edgebtn", attr: { "aria-label": loc.tagEditTitle } });
+    const editTagsBtn = headActions.createEl("button", { cls: "annocard-cs-edgebtn", attr: { "aria-label": loc.tagEditTitle } });
     setIcon(editTagsBtn, "tags");
     editTagsBtn.toggleClass("is-active", this.cardSetEdit === "tags");
     editTagsBtn.addEventListener("click", () => {
@@ -1004,7 +1006,7 @@ this.closeCardSetOverlay();
       this.renderCardSetPopup();
     });
 
-    const delBtn = edge.createEl("button", { cls: "annocard-cs-edgebtn annocard-cs-edgebtn-danger", attr: { "aria-label": loc.delete } });
+    const delBtn = headActions.createEl("button", { cls: "annocard-cs-edgebtn annocard-cs-edgebtn-danger", attr: { "aria-label": loc.delete } });
     setIcon(delBtn, "trash-2");
     delBtn.toggleClass("is-active", this.cardSetEdit === "delete");
     delBtn.addEventListener("click", () => {
@@ -1012,16 +1014,19 @@ this.closeCardSetOverlay();
       this.renderCardSetPopup();
     });
 
-    // 头部:进度 + 关闭
-    const head = popup.createDiv({ cls: "annocard-cs-head" });
-    head.createSpan({ cls: "annocard-cs-index", text: (this.cardSetCursor + 1) + " / " + cards.length });
-    const closeBtn = head.createEl("button", { cls: "annocard-cs-close", text: "×" });
+    const closeBtn = headActions.createEl("button", { cls: "annocard-cs-close", text: "×" });
     closeBtn.addEventListener("click", () => {
       this.closeCardSetPopup();
     });
 
-    // 标注原文
-    popup.createDiv({ cls: "annocard-cs-annotation", text: '"' + card.annotation.text + '"' });
+    // 标注原文(底色与左缘色条随卡片颜色)
+    const annotationBlock = popup.createDiv({ cls: "annocard-cs-annotation", text: '"' + card.annotation.text + '"' });
+    const bgColor = COLOR_BG_VARS[card.annotation.color];
+    const accentColor = COLOR_ACCENT_VARS[card.annotation.color];
+    annotationBlock.setCssStyles({
+      background: bgColor ?? "transparent",
+      borderLeft: "3px solid " + (accentColor ?? "var(--interactive-accent)"),
+    });
 
     const backToView = () => {
       this.cardSetEdit = "view";
