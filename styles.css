@@ -69,6 +69,17 @@
 /* 添加标注菜单的标题栏作为拖动手柄：cursor 提示可拖，
    touch-action: none 让触摸拖动不被页面滚动接管，拖动时不选中标题文字 */
 .annotation-selection-menu .annotation-menu-header {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 26px;
+  padding: 0 4px;
+  justify-content: flex-end;
+  align-items: flex-start;
+  background: transparent;
+  border-bottom: none;
+  z-index: 5;
   cursor: move;
   touch-action: none;
   user-select: none;
@@ -99,7 +110,7 @@
 }
 
 .annotation-menu-preview {
-  padding: 6px 14px 10px;
+  padding: 6px 38px 10px 14px;
   border-bottom: 1px solid var(--background-modifier-border);
   position: relative;
 }
