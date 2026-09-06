@@ -3301,3 +3301,39 @@
   justify-content: flex-end;
   gap: 8px;
 }
+
+/* ========== 卡片集独立弹窗 ========== */
+.annocard-cs-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.5);
+  z-index: 999;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.annocard-cs-panel {
+  width: min(920px, 94vw);
+  height: min(86vh, 780px);
+  max-width: 94vw;
+  max-height: 92vh;
+  background: var(--background-primary);
+  border: 1px solid var(--background-modifier-border);
+  border-radius: 16px;
+  box-shadow: 0 16px 48px rgba(0, 0, 0, 0.45);
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+}
+.annocard-cs-content {
+  flex: 1;
+  overflow: auto;
+  padding: 14px 16px 16px;
+}
+@media (max-width: 600px) {
+  .annocard-cs-panel {
+    width: 96vw;
+    height: 92vh;
+    border-radius: 12px;
+  }
+}

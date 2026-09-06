@@ -66,6 +66,8 @@ export class AnnotationSidebarView extends ItemView {
   private cardSetColorFilter: AnnotationColor | "all" = "all";
   private cardSetStateFilter: "all" | "remember" | "forget" = "all";
   private cardSetPopupEl: HTMLElement | null = null;
+  // 卡片集独立弹窗
+  private cardSetOverlayEl: HTMLElement | null = null;
   private cardSetPopupCards: AnnotationCardData[] | null = null;
   private cardSetCursor = 0;
   private cardSetKeyHandler: ((e: KeyboardEvent) => void) | null = null;
@@ -184,6 +186,7 @@ export class AnnotationSidebarView extends ItemView {
     // AnnoCard:关闭时退出复习模式(若打开)
     if (this.reviewMode) {
     this.closeCardSetPopup();
+this.closeCardSetOverlay();
       this.reviewMode.exit();
       this.reviewMode = null;
     }
@@ -759,13 +762,53 @@ export class AnnotationSidebarView extends ItemView {
     this.reviewMode.start();
   }
 
-  // 切换卡片集(HiLighter 风格:按文件分组网格,支持条状/方形视图与筛选)
+  // 切换卡片集(HiLighter 风格独立弹窗:按文件分组网格,支持条状/方形视图与筛选)
   private toggleReviewOverview(): void {
     if (this.reviewMode) return;
     if (this.cardSetPopupEl) this.closeCardSetPopup();
-    this.reviewOverviewActive = !this.reviewOverviewActive;
-    this.reviewBtn?.toggleClass("is-active", this.reviewOverviewActive);
-    void this.renderCards({ keepReviewOverview: this.reviewOverviewActive });
+    if (this.cardSetOverlayEl) {
+      this.closeCardSetOverlay();
+      return;
+    }
+    this.openCardSetOverlay();
+  }
+
+  private openCardSetOverlay(): void {
+    const overlay = activeDocument.body.createDiv({ cls: "annocard-cs-overlay" });
+    overlay.createDiv({ cls: "annocard-cs-panel" }).createDiv({ cls: "annocard-cs-content" });
+    overlay.addEventListener("mousedown", (e) => {
+      if (e.target === overlay) this.closeCardSetOverlay();
+    });
+    // 统一 Esc:小弹窗打开时先关小弹窗,否则关卡片集弹窗
+    this.cardSetKeyHandler = (e: KeyboardEvent) => {
+      if (e.key !== "Escape") return;
+      if (this.cardSetPopupEl) this.closeCardSetPopup();
+      else this.closeCardSetOverlay();
+    };
+    activeDocument.addEventListener("keydown", this.cardSetKeyHandler);
+    this.cardSetOverlayEl = overlay;
+    this.reviewBtn?.addClass("is-active");
+    this.renderCardSetPanel();
+  }
+
+  private closeCardSetOverlay(): void {
+    this.closeCardSetPopup();
+    if (this.cardSetKeyHandler) {
+      activeDocument.removeEventListener("keydown", this.cardSetKeyHandler);
+      this.cardSetKeyHandler = null;
+    }
+    this.cardSetOverlayEl?.remove();
+    this.cardSetOverlayEl = null;
+    this.reviewBtn?.removeClass("is-active");
+  }
+
+  // 用最新数据重绘卡片集弹窗内容
+  private renderCardSetPanel(): void {
+    if (!this.cardSetOverlayEl) return;
+    const content = this.cardSetOverlayEl.querySelector<HTMLElement>(".annocard-cs-content");
+    if (!content) return;
+    content.empty();
+    this.renderReviewOverview(content);
   }
 
   // 卡片集当前筛选下的有序卡片(网格与小弹窗共用同一顺序)
@@ -781,19 +824,20 @@ export class AnnotationSidebarView extends ItemView {
   }
 
   // 渲染卡片集:顶部工具栏(视图/顺序/颜色/记住/忘记) + 按文件分组的卡片网格
-  private renderReviewOverview(): void {
-    if (!this.cardListEl) return;
+  private renderReviewOverview(container?: HTMLElement): void {
+    const root = container ?? this.cardListEl;
+    if (!root) return;
     const loc = t();
-    this.cardListEl.empty();
+    root.empty();
 
     const cards = this.getCardSetCards();
     if (cards.length === 0) {
-      this.renderEmpty(this.cardListEl, loc.cardReviewEmpty);
+      this.renderEmpty(root, loc.cardReviewEmpty);
       return;
     }
 
     // 顶部工具栏
-    const bar = this.cardListEl.createDiv({ cls: "annocard-cs-toolbar" });
+    const bar = root.createDiv({ cls: "annocard-cs-toolbar" });
 
     // 视图切换:方形 / 条状
     const viewWrap = bar.createDiv({ cls: "annocard-cs-viewtoggle" });
@@ -809,12 +853,12 @@ export class AnnotationSidebarView extends ItemView {
     squareBtn.addEventListener("click", () => {
       this.cardSetView = "square";
       syncViewBtns();
-      void this.renderCards({ keepReviewOverview: true });
+      this.renderCardSetPanel();
     });
     barBtn.addEventListener("click", () => {
       this.cardSetView = "bar";
       syncViewBtns();
-      void this.renderCards({ keepReviewOverview: true });
+      this.renderCardSetPanel();
     });
 
     // 顺序:正序 / 倒序
@@ -824,7 +868,7 @@ export class AnnotationSidebarView extends ItemView {
     orderSel.value = this.cardSetOrderAsc ? "asc" : "desc";
     orderSel.addEventListener("change", () => {
       this.cardSetOrderAsc = orderSel.value === "asc";
-      void this.renderCards({ keepReviewOverview: true });
+      this.renderCardSetPanel();
     });
 
     // 颜色筛选圆点(全部 + 启用的颜色)
@@ -840,7 +884,7 @@ export class AnnotationSidebarView extends ItemView {
       dot.toggleClass("is-active", this.cardSetColorFilter === color);
       dot.addEventListener("click", () => {
         this.cardSetColorFilter = color;
-        void this.renderCards({ keepReviewOverview: true });
+        this.renderCardSetPanel();
       });
     };
     mkDot("all");
@@ -856,7 +900,7 @@ export class AnnotationSidebarView extends ItemView {
       chip.toggleClass("is-active", this.cardSetStateFilter === mode);
       chip.addEventListener("click", () => {
         this.cardSetStateFilter = this.cardSetStateFilter === mode ? "all" : mode;
-        void this.renderCards({ keepReviewOverview: true });
+        this.renderCardSetPanel();
       });
     };
     mkState("remember");
@@ -872,7 +916,7 @@ export class AnnotationSidebarView extends ItemView {
 
     for (const [notePath, groupCards] of groups) {
       const fileName = notePath.split("/").pop()?.replace(/\.md$/i, "") ?? notePath;
-      const group = this.cardListEl.createDiv({ cls: "annocard-review-group" });
+      const group = root.createDiv({ cls: "annocard-review-group" });
       const header = group.createDiv({ cls: "annocard-review-group-header" });
       const caret = header.createSpan({ cls: "annocard-review-group-caret", text: "▾" });
       header.createSpan({ cls: "annocard-review-group-name", text: fileName });
@@ -903,7 +947,7 @@ export class AnnotationSidebarView extends ItemView {
     }
   }
 
-  // ========== 卡片集小弹窗 ==========
+  // ========== 卡片集内的小弹窗 ==========
 
   private openCardSetPopup(cards: AnnotationCardData[]): void {
     this.closeCardSetPopup();
@@ -914,19 +958,11 @@ export class AnnotationSidebarView extends ItemView {
     backdrop.addEventListener("mousedown", (e) => {
       if (e.target === backdrop) this.closeCardSetPopup();
     });
-    this.cardSetKeyHandler = (e: KeyboardEvent) => {
-      if (e.key === "Escape") this.closeCardSetPopup();
-    };
-    activeDocument.addEventListener("keydown", this.cardSetKeyHandler);
     this.cardSetPopupEl = backdrop;
     this.renderCardSetPopup();
   }
 
   private closeCardSetPopup(): void {
-    if (this.cardSetKeyHandler) {
-      activeDocument.removeEventListener("keydown", this.cardSetKeyHandler);
-      this.cardSetKeyHandler = null;
-    }
     this.cardSetPopupEl?.remove();
     this.cardSetPopupEl = null;
     this.cardSetPopupCards = null;
@@ -1055,12 +1091,13 @@ export class AnnotationSidebarView extends ItemView {
     await this.afterCardSetMutation();
   }
 
-  // 标记/编辑/删除后:重建卡片集网格并刷新小弹窗(按标注 id 重新定位)
+  // 标记/编辑/删除后:刷新侧边栏 + 重绘卡片集弹窗 + 刷新小弹窗(按标注 id 重新定位)
   private async afterCardSetMutation(): Promise<void> {
-    if (!this.reviewOverviewActive && !this.cardSetPopupEl) return;
+    if (!this.cardSetOverlayEl && !this.cardSetPopupEl) return;
     const currentId = this.cardSetPopupCards?.[this.cardSetCursor]?.annotation.id;
     this.allAnnotationsCache = null;
-    await this.renderCards({ keepReviewOverview: true });
+    await this.renderCards({ preserveScroll: true });
+    if (this.cardSetOverlayEl) this.renderCardSetPanel();
     if (this.cardSetPopupEl) {
       const fresh = this.getCardSetCards();
       const idx = currentId ? fresh.findIndex((c) => c.annotation.id === currentId) : -1;
@@ -1085,15 +1122,8 @@ export class AnnotationSidebarView extends ItemView {
     this.lastRefreshedNotePath = activeFile?.path ?? null;
   }
 
-  private async renderCards(opts: { preserveScroll?: boolean; keepReviewOverview?: boolean } = {}): Promise<void> {
+  private async renderCards(opts: { preserveScroll?: boolean } = {}): Promise<void> {
     if (!this.cardListEl) return;
-    // 非总览触发路径(筛选/搜索/排序/数据刷新)一律退出复习总览
-    if (!opts.keepReviewOverview) this.reviewOverviewActive = false;
-    // 复习总览激活:渲染分组网格而非普通卡片流
-    if (this.reviewOverviewActive) {
-      this.renderReviewOverview();
-      return;
-    }
     // 在 empty() 前捕获滚动位置(仅 preserveScroll 时)
     const savedScroll = opts.preserveScroll ? this.cardListEl.scrollTop : 0;
 

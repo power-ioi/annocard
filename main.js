@@ -5349,6 +5349,8 @@ var AnnotationSidebarView = class extends import_obsidian17.ItemView {
     this.cardSetColorFilter = "all";
     this.cardSetStateFilter = "all";
     this.cardSetPopupEl = null;
+    // 卡片集独立弹窗
+    this.cardSetOverlayEl = null;
     this.cardSetPopupCards = null;
     this.cardSetCursor = 0;
     this.cardSetKeyHandler = null;
@@ -5439,6 +5441,7 @@ var AnnotationSidebarView = class extends import_obsidian17.ItemView {
     }
     if (this.reviewMode) {
       this.closeCardSetPopup();
+      this.closeCardSetOverlay();
       this.reviewMode.exit();
       this.reviewMode = null;
     }
@@ -5914,14 +5917,51 @@ var AnnotationSidebarView = class extends import_obsidian17.ItemView {
     });
     this.reviewMode.start();
   }
-  // 切换卡片集(HiLighter 风格:按文件分组网格,支持条状/方形视图与筛选)
+  // 切换卡片集(HiLighter 风格独立弹窗:按文件分组网格,支持条状/方形视图与筛选)
   toggleReviewOverview() {
-    var _a;
     if (this.reviewMode) return;
     if (this.cardSetPopupEl) this.closeCardSetPopup();
-    this.reviewOverviewActive = !this.reviewOverviewActive;
-    (_a = this.reviewBtn) == null ? void 0 : _a.toggleClass("is-active", this.reviewOverviewActive);
-    void this.renderCards({ keepReviewOverview: this.reviewOverviewActive });
+    if (this.cardSetOverlayEl) {
+      this.closeCardSetOverlay();
+      return;
+    }
+    this.openCardSetOverlay();
+  }
+  openCardSetOverlay() {
+    var _a;
+    const overlay = activeDocument.body.createDiv({ cls: "annocard-cs-overlay" });
+    overlay.createDiv({ cls: "annocard-cs-panel" }).createDiv({ cls: "annocard-cs-content" });
+    overlay.addEventListener("mousedown", (e) => {
+      if (e.target === overlay) this.closeCardSetOverlay();
+    });
+    this.cardSetKeyHandler = (e) => {
+      if (e.key !== "Escape") return;
+      if (this.cardSetPopupEl) this.closeCardSetPopup();
+      else this.closeCardSetOverlay();
+    };
+    activeDocument.addEventListener("keydown", this.cardSetKeyHandler);
+    this.cardSetOverlayEl = overlay;
+    (_a = this.reviewBtn) == null ? void 0 : _a.addClass("is-active");
+    this.renderCardSetPanel();
+  }
+  closeCardSetOverlay() {
+    var _a, _b;
+    this.closeCardSetPopup();
+    if (this.cardSetKeyHandler) {
+      activeDocument.removeEventListener("keydown", this.cardSetKeyHandler);
+      this.cardSetKeyHandler = null;
+    }
+    (_a = this.cardSetOverlayEl) == null ? void 0 : _a.remove();
+    this.cardSetOverlayEl = null;
+    (_b = this.reviewBtn) == null ? void 0 : _b.removeClass("is-active");
+  }
+  // 用最新数据重绘卡片集弹窗内容
+  renderCardSetPanel() {
+    if (!this.cardSetOverlayEl) return;
+    const content = this.cardSetOverlayEl.querySelector(".annocard-cs-content");
+    if (!content) return;
+    content.empty();
+    this.renderReviewOverview(content);
   }
   // 卡片集当前筛选下的有序卡片(网格与小弹窗共用同一顺序)
   getCardSetCards() {
@@ -5935,17 +5975,18 @@ var AnnotationSidebarView = class extends import_obsidian17.ItemView {
     return cards;
   }
   // 渲染卡片集:顶部工具栏(视图/顺序/颜色/记住/忘记) + 按文件分组的卡片网格
-  renderReviewOverview() {
+  renderReviewOverview(container) {
     var _a, _b;
-    if (!this.cardListEl) return;
+    const root = container != null ? container : this.cardListEl;
+    if (!root) return;
     const loc = t();
-    this.cardListEl.empty();
+    root.empty();
     const cards = this.getCardSetCards();
     if (cards.length === 0) {
-      this.renderEmpty(this.cardListEl, loc.cardReviewEmpty);
+      this.renderEmpty(root, loc.cardReviewEmpty);
       return;
     }
-    const bar = this.cardListEl.createDiv({ cls: "annocard-cs-toolbar" });
+    const bar = root.createDiv({ cls: "annocard-cs-toolbar" });
     const viewWrap = bar.createDiv({ cls: "annocard-cs-viewtoggle" });
     const squareBtn = viewWrap.createEl("button", { cls: "annocard-cs-viewbtn", attr: { "aria-label": loc.cardSetViewSquare } });
     (0, import_obsidian17.setIcon)(squareBtn, "layout-grid");
@@ -5959,12 +6000,12 @@ var AnnotationSidebarView = class extends import_obsidian17.ItemView {
     squareBtn.addEventListener("click", () => {
       this.cardSetView = "square";
       syncViewBtns();
-      void this.renderCards({ keepReviewOverview: true });
+      this.renderCardSetPanel();
     });
     barBtn.addEventListener("click", () => {
       this.cardSetView = "bar";
       syncViewBtns();
-      void this.renderCards({ keepReviewOverview: true });
+      this.renderCardSetPanel();
     });
     const orderSel = bar.createEl("select", { cls: "annocard-cs-order" });
     orderSel.createEl("option", { value: "asc", text: loc.cardSetOrderAsc });
@@ -5972,7 +6013,7 @@ var AnnotationSidebarView = class extends import_obsidian17.ItemView {
     orderSel.value = this.cardSetOrderAsc ? "asc" : "desc";
     orderSel.addEventListener("change", () => {
       this.cardSetOrderAsc = orderSel.value === "asc";
-      void this.renderCards({ keepReviewOverview: true });
+      this.renderCardSetPanel();
     });
     const colorWrap = bar.createDiv({ cls: "annocard-cs-colors" });
     const mkDot = (color) => {
@@ -5986,7 +6027,7 @@ var AnnotationSidebarView = class extends import_obsidian17.ItemView {
       dot.toggleClass("is-active", this.cardSetColorFilter === color);
       dot.addEventListener("click", () => {
         this.cardSetColorFilter = color;
-        void this.renderCards({ keepReviewOverview: true });
+        this.renderCardSetPanel();
       });
     };
     mkDot("all");
@@ -6000,7 +6041,7 @@ var AnnotationSidebarView = class extends import_obsidian17.ItemView {
       chip.toggleClass("is-active", this.cardSetStateFilter === mode);
       chip.addEventListener("click", () => {
         this.cardSetStateFilter = this.cardSetStateFilter === mode ? "all" : mode;
-        void this.renderCards({ keepReviewOverview: true });
+        this.renderCardSetPanel();
       });
     };
     mkState("remember");
@@ -6013,7 +6054,7 @@ var AnnotationSidebarView = class extends import_obsidian17.ItemView {
     }
     for (const [notePath, groupCards] of groups) {
       const fileName = (_b = (_a = notePath.split("/").pop()) == null ? void 0 : _a.replace(/\.md$/i, "")) != null ? _b : notePath;
-      const group = this.cardListEl.createDiv({ cls: "annocard-review-group" });
+      const group = root.createDiv({ cls: "annocard-review-group" });
       const header = group.createDiv({ cls: "annocard-review-group-header" });
       const caret = header.createSpan({ cls: "annocard-review-group-caret", text: "\u25BE" });
       header.createSpan({ cls: "annocard-review-group-name", text: fileName });
@@ -6042,7 +6083,7 @@ var AnnotationSidebarView = class extends import_obsidian17.ItemView {
       }
     }
   }
-  // ========== 卡片集小弹窗 ==========
+  // ========== 卡片集内的小弹窗 ==========
   openCardSetPopup(cards) {
     this.closeCardSetPopup();
     if (cards.length === 0) return;
@@ -6052,19 +6093,11 @@ var AnnotationSidebarView = class extends import_obsidian17.ItemView {
     backdrop.addEventListener("mousedown", (e) => {
       if (e.target === backdrop) this.closeCardSetPopup();
     });
-    this.cardSetKeyHandler = (e) => {
-      if (e.key === "Escape") this.closeCardSetPopup();
-    };
-    activeDocument.addEventListener("keydown", this.cardSetKeyHandler);
     this.cardSetPopupEl = backdrop;
     this.renderCardSetPopup();
   }
   closeCardSetPopup() {
     var _a;
-    if (this.cardSetKeyHandler) {
-      activeDocument.removeEventListener("keydown", this.cardSetKeyHandler);
-      this.cardSetKeyHandler = null;
-    }
     (_a = this.cardSetPopupEl) == null ? void 0 : _a.remove();
     this.cardSetPopupEl = null;
     this.cardSetPopupCards = null;
@@ -6183,13 +6216,14 @@ var AnnotationSidebarView = class extends import_obsidian17.ItemView {
     }
     await this.afterCardSetMutation();
   }
-  // 标记/编辑/删除后:重建卡片集网格并刷新小弹窗(按标注 id 重新定位)
+  // 标记/编辑/删除后:刷新侧边栏 + 重绘卡片集弹窗 + 刷新小弹窗(按标注 id 重新定位)
   async afterCardSetMutation() {
     var _a, _b;
-    if (!this.reviewOverviewActive && !this.cardSetPopupEl) return;
+    if (!this.cardSetOverlayEl && !this.cardSetPopupEl) return;
     const currentId = (_b = (_a = this.cardSetPopupCards) == null ? void 0 : _a[this.cardSetCursor]) == null ? void 0 : _b.annotation.id;
     this.allAnnotationsCache = null;
-    await this.renderCards({ keepReviewOverview: true });
+    await this.renderCards({ preserveScroll: true });
+    if (this.cardSetOverlayEl) this.renderCardSetPanel();
     if (this.cardSetPopupEl) {
       const fresh = this.getCardSetCards();
       const idx = currentId ? fresh.findIndex((c) => c.annotation.id === currentId) : -1;
@@ -6213,11 +6247,6 @@ var AnnotationSidebarView = class extends import_obsidian17.ItemView {
   }
   async renderCards(opts = {}) {
     if (!this.cardListEl) return;
-    if (!opts.keepReviewOverview) this.reviewOverviewActive = false;
-    if (this.reviewOverviewActive) {
-      this.renderReviewOverview();
-      return;
-    }
     const savedScroll = opts.preserveScroll ? this.cardListEl.scrollTop : 0;
     if (this.colorFilter !== "all" && !getActiveColors(this.plugin.settings).includes(this.colorFilter)) {
       this.colorFilter = "all";
