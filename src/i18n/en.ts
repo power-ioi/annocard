@@ -64,15 +64,10 @@ export const en: LocaleDict = {
   noticePartialWikiLink: "Cannot annotate partial text within a wiki-link. Please select the complete link text",
 
   // Edit note modal
-  modalEditNote: "Edit Note",
-  modalAddNote: "Add Note",
-  modalAnnotationText: "Annotation text:",
-  modalAnnotationColor: "Annotation color:",
   modalNoteLabel: (n: number) => `Note (max ${n} chars):`,
   modalNotePlaceholder: "Enter note content...",
 
-  // Annotation detail menu
-  menuAnnotationDetail: "Annotation Detail",
+  // Annotation menu
   menuEditNote: "Edit Note",
   menuCopyOriginal: "Copy Original",
   noticeColorChanged: "Annotation color updated",
@@ -82,7 +77,7 @@ export const en: LocaleDict = {
 
   // Annotation list panel
   panelTitle: "Annotation List",
-  panelSortContentAsc: "By content order (top to bottom)",
+  panelSortContentAsc: "Order",
   panelSortContentDesc: "By content reverse (bottom to top)",
   panelSortTimeAsc: "By time (oldest first)",
   panelSortTimeDesc: "By time (newest first)",
@@ -90,6 +85,8 @@ export const en: LocaleDict = {
   panelSortColorDesc: "By color (descending)",
   panelDeleteAnnotation: "Delete annotation",
   panelViewAnnotation: "View annotation",
+  panelFilterLabel: "Filter",
+  panelFilterAll: "All",
 
   // Sidebar
   sidebarTitle: "Annotation Manager",
@@ -111,9 +108,7 @@ export const en: LocaleDict = {
   sidebarLoadFailed: "Load failed",
   sidebarNoMatch: "No matching annotations",
   sidebarNoAnnotations: "No annotations",
-  sidebarDetailTitle: "Annotation Detail",
   sidebarAnnotationText: "Annotation Text",
-  sidebarAnnotationColor: "Color",
   sidebarNoteSection: "Note",
   sidebarNoteEditPlaceholder: "Enter note content...",
   sidebarNoteCopy: "Copy",

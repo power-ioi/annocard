@@ -1128,7 +1128,7 @@ export default class AnnotationPlugin extends Plugin {
       oldPanel.hide();
     }
 
-    const panel = new AnnotationListPanel(this.app, this.fileManager);
+    const panel = new AnnotationListPanel(this.app, this.fileManager, () => this.settings);
     this.annotationPanels.set(leaf, panel);
     panel.show({
       notePath,

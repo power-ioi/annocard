@@ -1,6 +1,6 @@
-import { App, MarkdownView, Notice } from "obsidian";
-import type { ParsedAnnotation } from "../types";
-import { COLOR_CLASSES } from "../constants";
+import { App, MarkdownView, Notice, setIcon } from "obsidian";
+import type { AnnotationPluginSettings, ParsedAnnotation } from "../types";
+import { COLOR_CLASSES, getActiveColors } from "../constants";
 import { AnnotationFileManager } from "../annotationFile/AnnotationFileManager";
 import { editAnnotationInEditor } from "../utils/annotationEditorHelper";
 import { scrollToAnnotation } from "../utils/scrollToAnnotation";
@@ -10,12 +10,14 @@ import { t } from "../i18n";
 export class AnnotationListPanel {
   private app: App;
   private fileManager: AnnotationFileManager;
+  private getSettings: () => AnnotationPluginSettings;
   private containerEl: HTMLElement | null = null;
   private panelEl: HTMLElement | null = null;
   private listBtn: HTMLElement | null = null;
   private currentNotePath: string | null = null;
   private onUpdate: (() => void) | null = null;
   private sortOption: "position-asc" | "position-desc" | "time-asc" | "time-desc" | "color-asc" | "color-desc" = "position-asc";
+  private colorFilter: string = "all";
   private panelClickHandler: ((e: MouseEvent) => void) | null = null;
   // 右键删除确认小菜单：面板关闭时一并回收，避免残留
   private contextMenuEl: HTMLElement | null = null;
@@ -35,9 +37,10 @@ export class AnnotationListPanel {
   private dragMoveHandler: ((e: PointerEvent) => void) | null = null;
   private dragEndHandler: ((e: PointerEvent) => void) | null = null;
 
-  constructor(app: App, fileManager: AnnotationFileManager) {
+  constructor(app: App, fileManager: AnnotationFileManager, getSettings: () => AnnotationPluginSettings) {
     this.app = app;
     this.fileManager = fileManager;
+    this.getSettings = getSettings;
   }
 
   show(params: {
@@ -59,7 +62,8 @@ export class AnnotationListPanel {
 
     this.listBtn = createDiv();
     this.listBtn.className = "annotation-list-btn";
-    this.listBtn.createSpan({ text: "📝" });
+    // 线条图标（Lucide list），替代原先的实心 emoji 图标
+    setIcon(this.listBtn, "list");
     this.listBtn.title = t().panelViewAnnotation;
 
     this.containerEl.appendChild(this.listBtn);
@@ -163,10 +167,13 @@ export class AnnotationListPanel {
     // 标题栏
     const header = panel.createDiv({ cls: "annotation-list-header" });
     header.createSpan({ text: loc.panelTitle, cls: "annotation-list-title" });
+    const closeBtn = header.createEl("button", { cls: "annotation-list-close", text: loc.close });
+    closeBtn.addEventListener("click", () => this.hidePanel());
 
-    // 排序选择
-    const sortContainer = header.createDiv({ cls: "annotation-list-sort-container" });
-    const sortSelect = sortContainer.createEl("select", { cls: "annotation-list-sort-select" });
+    // 工具行：排序 + 颜色筛选
+    const toolbar = panel.createDiv({ cls: "annotation-list-toolbar" });
+
+    const sortSelect = toolbar.createEl("select", { cls: "annotation-list-sort-select" });
     const opts = [
       { v: "position-asc", t: loc.panelSortContentAsc },
       { v: "position-desc", t: loc.panelSortContentDesc },
@@ -185,8 +192,67 @@ export class AnnotationListPanel {
       void this.refreshContent();
     });
 
-    const closeBtn = header.createEl("button", { cls: "annotation-list-close", text: loc.close });
-    closeBtn.addEventListener("click", () => this.hidePanel());
+    // 颜色筛选：按钮 + 弹出气泡（窄面板里不挤一排圆点）
+    const settings = this.getSettings();
+    const settingsMap = settings as unknown as Record<string, unknown>;
+    const filterWrap = toolbar.createDiv({ cls: "annotation-list-filter-wrap" });
+    const filterBtn = filterWrap.createEl("button", { cls: "annotation-list-filter-btn" });
+    filterBtn.title = loc.panelFilterLabel;
+    setIcon(filterBtn, "filter");
+    const updateBtnState = () => {
+      filterBtn.toggleClass("filter-on", this.colorFilter !== "all");
+    };
+    updateBtnState();
+
+    let popover: HTMLElement | null = null;
+    const closePopover = () => {
+      popover?.remove();
+      popover = null;
+      activeDocument.removeEventListener("click", outsideClose, true);
+    };
+    const outsideClose = (e: MouseEvent) => {
+      if (popover && !popover.contains(e.target as Node) && !filterBtn.contains(e.target as Node)) {
+        closePopover();
+      }
+    };
+    const buildPopover = () => {
+      popover = createDiv({ cls: "annotation-list-filter-popover" });
+      const allOpt = popover.createEl("button", {
+        cls: "annotation-list-filter-all" + (this.colorFilter === "all" ? " active" : ""),
+        text: loc.panelFilterAll,
+      });
+      allOpt.addEventListener("click", (e) => {
+        e.stopPropagation();
+        this.colorFilter = "all";
+        updateBtnState();
+        void this.refreshContent();
+        closePopover();
+      });
+      const dotsRow = popover.createDiv({ cls: "annotation-list-filter-dots" });
+      for (const c of getActiveColors(settings)) {
+        const colorLabel = typeof settingsMap[`colorLabel${c}`] === "string"
+          ? (settingsMap[`colorLabel${c}`] as string)
+          : loc.colorLabel(c);
+        const dot = dotsRow.createEl("button", {
+          cls: `hl-h-color-dot annotation-sidebar-color-btn ${COLOR_CLASSES[c]}` + (this.colorFilter === c ? " active" : ""),
+        });
+        dot.title = c === "none" ? loc.none : colorLabel;
+        dot.addEventListener("click", (e) => {
+          e.stopPropagation();
+          this.colorFilter = c;
+          updateBtnState();
+          void this.refreshContent();
+          closePopover();
+        });
+      }
+      filterWrap.appendChild(popover);
+      window.setTimeout(() => activeDocument.addEventListener("click", outsideClose, true), 10);
+    };
+    filterBtn.addEventListener("click", (e) => {
+      e.stopPropagation();
+      if (popover) closePopover();
+      else buildPopover();
+    });
 
     const content = panel.createDiv({ cls: "annotation-list-content" });
     // 先渲染内容，再定位，避免空面板闪烁后跳位
@@ -317,7 +383,17 @@ export class AnnotationListPanel {
         break;
     }
 
-    for (const annotation of sorted) {
+    // 颜色筛选
+    const filtered = this.colorFilter === "all"
+      ? sorted
+      : sorted.filter((a) => a.color === this.colorFilter);
+
+    if (filtered.length === 0) {
+      content.createDiv({ cls: "annotation-list-empty", text: loc.sidebarNoMatch });
+      return;
+    }
+
+    for (const annotation of filtered) {
       const item = content.createDiv({ cls: "annotation-list-item" });
 
       item.createSpan({ cls: `annotation-list-dot ${COLOR_CLASSES[annotation.color]}` });

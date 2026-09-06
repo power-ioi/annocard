@@ -64,15 +64,10 @@ export const zhCN: LocaleDict = {
   noticePartialWikiLink: "无法标注双链内的部分文字，请选中完整的双链文本",
 
   // 编辑批注模态框
-  modalEditNote: "编辑批注",
-  modalAddNote: "添加批注",
-  modalAnnotationText: "标注文字：",
-  modalAnnotationColor: "标注颜色：",
   modalNoteLabel: (n: number) => `批注内容（最多${n}字）：`,
   modalNotePlaceholder: "请输入批注内容...",
 
-  // 标注详情菜单
-  menuAnnotationDetail: "标注详情",
+  // 标注菜单
   menuEditNote: "编辑批注",
   menuCopyOriginal: "复制原文",
   noticeColorChanged: "标注颜色已修改",
@@ -82,7 +77,7 @@ export const zhCN: LocaleDict = {
 
   // 标注列表面板
   panelTitle: "标注列表",
-  panelSortContentAsc: "按内容顺序（从上到下）",
+  panelSortContentAsc: "顺序",
   panelSortContentDesc: "按内容倒序（从下到上）",
   panelSortTimeAsc: "按时间正序（从旧到新）",
   panelSortTimeDesc: "按时间倒序（从新到旧）",
@@ -90,6 +85,8 @@ export const zhCN: LocaleDict = {
   panelSortColorDesc: "按颜色排序（倒序）",
   panelDeleteAnnotation: "删除标注",
   panelViewAnnotation: "查看标注",
+  panelFilterLabel: "筛选",
+  panelFilterAll: "全部",
 
   // 侧边栏
   sidebarTitle: "标注管理",
@@ -111,9 +108,7 @@ export const zhCN: LocaleDict = {
   sidebarLoadFailed: "加载失败",
   sidebarNoMatch: "没有匹配的标注",
   sidebarNoAnnotations: "暂无标注",
-  sidebarDetailTitle: "标注详情",
   sidebarAnnotationText: "标注文字",
-  sidebarAnnotationColor: "标注颜色",
   sidebarNoteSection: "批注内容",
   sidebarNoteEditPlaceholder: "请输入批注内容...",
   sidebarNoteCopy: "复制",

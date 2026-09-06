@@ -66,20 +66,12 @@
   border-radius: 8px 8px 0 0;
 }
 
-/* 添加标注菜单的标题栏作为拖动手柄：cursor 提示可拖，
-   touch-action: none 让触摸拖动不被页面滚动接管，拖动时不选中标题文字 */
+/* 添加标注菜单的标题栏仅含关闭按钮，右对齐独立成行，与文本预览分开；
+   同时作为拖动手柄：cursor 提示可拖，touch-action: none 让触摸拖动
+   不被页面滚动接管，拖动时不选中标题文字 */
 .annotation-selection-menu .annotation-menu-header {
-  position: absolute;
-  top: 0;
-  left: 0;
-  right: 0;
-  height: 26px;
-  padding: 0 4px;
   justify-content: flex-end;
-  align-items: flex-start;
-  background: transparent;
-  border-bottom: none;
-  z-index: 5;
+  padding: 2px 6px;
   cursor: move;
   touch-action: none;
   user-select: none;
@@ -110,9 +102,15 @@
 }
 
 .annotation-menu-preview {
-  padding: 6px 38px 10px 14px;
+  padding: 6px 14px 10px 14px;
   border-bottom: 1px solid var(--background-modifier-border);
   position: relative;
+}
+
+/* 点击标注详情菜单：关闭按钮右对齐独立成行，不压在文本预览上 */
+.annotation-view-menu .annotation-menu-header {
+  justify-content: flex-end;
+  padding: 2px 6px;
 }
 
 .annotation-menu-preview::before {
@@ -326,7 +324,9 @@
 
 .annotation-note-modal {
   padding: 16px;
-  max-width: 480px;
+  /* 不设 max-width：Obsidian 的 .modal 固定 560px 宽，max-width 会让内容靠左、右侧留空 */
+  width: 100%;
+  box-sizing: border-box;
 }
 
 .annotation-note-modal h3 {
@@ -608,8 +608,10 @@
   transition: none;
 }
 
-.annotation-list-btn span {
-  font-size: 18px;
+.annotation-list-btn svg {
+  width: 18px;
+  height: 18px;
+  color: var(--text-muted);
 }
 
 .annotation-list-panel {
@@ -782,7 +784,8 @@
   font-size: 12px;
   cursor: pointer;
   transition: all 0.15s ease;
-  min-width: 160px;
+  min-width: 110px;
+  flex: 1 1 auto;
 }
 
 @media (hover: hover) {
@@ -795,6 +798,107 @@
   outline: none;
   border-color: var(--interactive-accent);
   box-shadow: 0 0 0 2px rgba(var(--interactive-accent-rgb), 0.2);
+}
+
+/* 排序 + 颜色筛选工具行 */
+.annotation-list-toolbar {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  padding: 8px 10px;
+  border-bottom: 1px solid var(--background-modifier-border);
+  position: relative;
+}
+
+.annotation-list-filter-wrap {
+  position: relative;
+  flex: 0 0 auto;
+}
+
+.annotation-list-filter-btn {
+  width: 30px;
+  height: 26px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid var(--background-modifier-border);
+  border-radius: 4px;
+  background: var(--background-primary);
+  color: var(--text-muted);
+  cursor: pointer;
+  transition: all 0.15s ease;
+  padding: 0;
+}
+
+.annotation-list-filter-btn svg {
+  width: 15px;
+  height: 15px;
+}
+
+@media (hover: hover) {
+  .annotation-list-filter-btn:hover {
+    border-color: var(--interactive-accent);
+    color: var(--text-normal);
+  }
+}
+
+.annotation-list-filter-btn.filter-on {
+  border-color: var(--interactive-accent);
+  color: var(--interactive-accent);
+  box-shadow: 0 0 0 2px rgba(var(--interactive-accent-rgb), 0.15);
+}
+
+.annotation-list-filter-popover {
+  position: absolute;
+  top: calc(100% + 6px);
+  right: 0;
+  z-index: 200;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+  padding: 8px 10px;
+  background: var(--background-primary);
+  border: 1px solid var(--background-modifier-border);
+  border-radius: 8px;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.18);
+  min-width: 150px;
+}
+
+.annotation-list-filter-all {
+  padding: 2px 10px;
+  border-radius: 10px;
+  font-size: 11px;
+  color: var(--text-muted);
+  background: var(--background-secondary);
+  border: 1px solid var(--background-modifier-border);
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+@media (hover: hover) {
+  .annotation-list-filter-all:hover {
+    border-color: var(--interactive-accent);
+  }
+}
+
+.annotation-list-filter-all.active {
+  background: var(--interactive-accent);
+  color: var(--text-on-accent);
+  border-color: var(--interactive-accent);
+}
+
+.annotation-list-filter-dots {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  align-items: center;
+}
+
+.annotation-list-filter-dots .annotation-sidebar-color-btn {
+  width: 16px;
+  height: 16px;
+  min-width: 16px;
 }
 
 .annotation-context-menu {

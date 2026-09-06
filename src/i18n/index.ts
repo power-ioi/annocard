@@ -70,15 +70,10 @@ export interface LocaleDict {
   noticePartialWikiLink: string;
 
   // 编辑批注模态框 (EditNoteModal)
-  modalEditNote: string;
-  modalAddNote: string;
-  modalAnnotationText: string;
-  modalAnnotationColor: string;
   modalNoteLabel: (n: number) => string;
   modalNotePlaceholder: string;
 
-  // 标注详情菜单 (AnnotationMenu)
-  menuAnnotationDetail: string;
+  // 标注菜单 (AnnotationMenu)
   menuEditNote: string;
   menuCopyOriginal: string;
   noticeColorChanged: string;
@@ -96,6 +91,8 @@ export interface LocaleDict {
   panelSortColorDesc: string;
   panelDeleteAnnotation: string;
   panelViewAnnotation: string;
+  panelFilterLabel: string;
+  panelFilterAll: string;
 
   // 侧边栏 (AnnotationSidebarView)
   sidebarTitle: string;
@@ -117,9 +114,7 @@ export interface LocaleDict {
   sidebarLoadFailed: string;
   sidebarNoMatch: string;
   sidebarNoAnnotations: string;
-  sidebarDetailTitle: string;
   sidebarAnnotationText: string;
-  sidebarAnnotationColor: string;
   sidebarNoteSection: string;
   sidebarNoteEditPlaceholder: string;
   sidebarNoteCopy: string;

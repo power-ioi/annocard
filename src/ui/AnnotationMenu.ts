@@ -40,7 +40,6 @@ export class AnnotationMenu {
     this.menuEl.className = "annotation-card-menu annotation-view-menu";
 
     const header = this.menuEl.createDiv({ cls: "annotation-menu-header" });
-    header.createSpan({ text: loc.menuAnnotationDetail, cls: "annotation-menu-title" });
     const closeBtn = header.createEl("button", { cls: "annotation-menu-close", text: loc.close });
     closeBtn.addEventListener("click", () => this.hide());
 
@@ -66,7 +65,6 @@ export class AnnotationMenu {
 
     // 颜色选择
     const colorSection = this.menuEl.createDiv({ cls: "annotation-menu-section" });
-    colorSection.createEl("label", { text: loc.sidebarAnnotationColor });
     const colorContainer = colorSection.createDiv({ cls: "annotation-color-buttons" });
 
     const colors: AnnotationColor[] = getActiveColors(settings);
@@ -206,7 +204,6 @@ export class AnnotationMenu {
       this.app,
       this.getSettings,
       {
-        text: annotation.text,
         note: annotation.note,
         color: annotation.color,
       },

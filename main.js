@@ -2008,14 +2008,9 @@ var zhCN = {
   noticeAddFailed: "\u6DFB\u52A0\u6807\u6CE8\u5931\u8D25",
   noticePartialWikiLink: "\u65E0\u6CD5\u6807\u6CE8\u53CC\u94FE\u5185\u7684\u90E8\u5206\u6587\u5B57\uFF0C\u8BF7\u9009\u4E2D\u5B8C\u6574\u7684\u53CC\u94FE\u6587\u672C",
   // 编辑批注模态框
-  modalEditNote: "\u7F16\u8F91\u6279\u6CE8",
-  modalAddNote: "\u6DFB\u52A0\u6279\u6CE8",
-  modalAnnotationText: "\u6807\u6CE8\u6587\u5B57\uFF1A",
-  modalAnnotationColor: "\u6807\u6CE8\u989C\u8272\uFF1A",
   modalNoteLabel: (n) => `\u6279\u6CE8\u5185\u5BB9\uFF08\u6700\u591A${n}\u5B57\uFF09\uFF1A`,
   modalNotePlaceholder: "\u8BF7\u8F93\u5165\u6279\u6CE8\u5185\u5BB9...",
-  // 标注详情菜单
-  menuAnnotationDetail: "\u6807\u6CE8\u8BE6\u60C5",
+  // 标注菜单
   menuEditNote: "\u7F16\u8F91\u6279\u6CE8",
   menuCopyOriginal: "\u590D\u5236\u539F\u6587",
   noticeColorChanged: "\u6807\u6CE8\u989C\u8272\u5DF2\u4FEE\u6539",
@@ -2024,7 +2019,7 @@ var zhCN = {
   noticeDeleted: "\u6807\u6CE8\u5DF2\u5220\u9664",
   // 标注列表面板
   panelTitle: "\u6807\u6CE8\u5217\u8868",
-  panelSortContentAsc: "\u6309\u5185\u5BB9\u987A\u5E8F\uFF08\u4ECE\u4E0A\u5230\u4E0B\uFF09",
+  panelSortContentAsc: "\u987A\u5E8F",
   panelSortContentDesc: "\u6309\u5185\u5BB9\u5012\u5E8F\uFF08\u4ECE\u4E0B\u5230\u4E0A\uFF09",
   panelSortTimeAsc: "\u6309\u65F6\u95F4\u6B63\u5E8F\uFF08\u4ECE\u65E7\u5230\u65B0\uFF09",
   panelSortTimeDesc: "\u6309\u65F6\u95F4\u5012\u5E8F\uFF08\u4ECE\u65B0\u5230\u65E7\uFF09",
@@ -2032,6 +2027,8 @@ var zhCN = {
   panelSortColorDesc: "\u6309\u989C\u8272\u6392\u5E8F\uFF08\u5012\u5E8F\uFF09",
   panelDeleteAnnotation: "\u5220\u9664\u6807\u6CE8",
   panelViewAnnotation: "\u67E5\u770B\u6807\u6CE8",
+  panelFilterLabel: "\u7B5B\u9009",
+  panelFilterAll: "\u5168\u90E8",
   // 侧边栏
   sidebarTitle: "\u6807\u6CE8\u7BA1\u7406",
   sidebarCurrentNote: "\u5F53\u524D",
@@ -2052,9 +2049,7 @@ var zhCN = {
   sidebarLoadFailed: "\u52A0\u8F7D\u5931\u8D25",
   sidebarNoMatch: "\u6CA1\u6709\u5339\u914D\u7684\u6807\u6CE8",
   sidebarNoAnnotations: "\u6682\u65E0\u6807\u6CE8",
-  sidebarDetailTitle: "\u6807\u6CE8\u8BE6\u60C5",
   sidebarAnnotationText: "\u6807\u6CE8\u6587\u5B57",
-  sidebarAnnotationColor: "\u6807\u6CE8\u989C\u8272",
   sidebarNoteSection: "\u6279\u6CE8\u5185\u5BB9",
   sidebarNoteEditPlaceholder: "\u8BF7\u8F93\u5165\u6279\u6CE8\u5185\u5BB9...",
   sidebarNoteCopy: "\u590D\u5236",
@@ -2234,14 +2229,9 @@ var en = {
   noticeAddFailed: "Failed to add annotation",
   noticePartialWikiLink: "Cannot annotate partial text within a wiki-link. Please select the complete link text",
   // Edit note modal
-  modalEditNote: "Edit Note",
-  modalAddNote: "Add Note",
-  modalAnnotationText: "Annotation text:",
-  modalAnnotationColor: "Annotation color:",
   modalNoteLabel: (n) => `Note (max ${n} chars):`,
   modalNotePlaceholder: "Enter note content...",
-  // Annotation detail menu
-  menuAnnotationDetail: "Annotation Detail",
+  // Annotation menu
   menuEditNote: "Edit Note",
   menuCopyOriginal: "Copy Original",
   noticeColorChanged: "Annotation color updated",
@@ -2250,7 +2240,7 @@ var en = {
   noticeDeleted: "Annotation deleted",
   // Annotation list panel
   panelTitle: "Annotation List",
-  panelSortContentAsc: "By content order (top to bottom)",
+  panelSortContentAsc: "Order",
   panelSortContentDesc: "By content reverse (bottom to top)",
   panelSortTimeAsc: "By time (oldest first)",
   panelSortTimeDesc: "By time (newest first)",
@@ -2258,6 +2248,8 @@ var en = {
   panelSortColorDesc: "By color (descending)",
   panelDeleteAnnotation: "Delete annotation",
   panelViewAnnotation: "View annotation",
+  panelFilterLabel: "Filter",
+  panelFilterAll: "All",
   // Sidebar
   sidebarTitle: "Annotation Manager",
   sidebarCurrentNote: "Current",
@@ -2278,9 +2270,7 @@ var en = {
   sidebarLoadFailed: "Load failed",
   sidebarNoMatch: "No matching annotations",
   sidebarNoAnnotations: "No annotations",
-  sidebarDetailTitle: "Annotation Detail",
   sidebarAnnotationText: "Annotation Text",
-  sidebarAnnotationColor: "Color",
   sidebarNoteSection: "Note",
   sidebarNoteEditPlaceholder: "Enter note content...",
   sidebarNoteCopy: "Copy",
@@ -2849,7 +2839,6 @@ var EditNoteModal = class extends import_obsidian6.Modal {
     super(app);
     this.noteInput = null;
     this.getSettings = getSettings;
-    this.annotationText = params.text;
     this.currentNote = params.note;
     this.currentColor = params.color;
     this.onSave = onSave;
@@ -2863,40 +2852,6 @@ var EditNoteModal = class extends import_obsidian6.Modal {
     this.containerEl.addEventListener("mousedown", (e) => e.stopPropagation());
     this.containerEl.addEventListener("mouseup", (e) => e.stopPropagation());
     this.containerEl.addEventListener("focusin", (e) => e.stopPropagation());
-    contentEl.createEl("h3", { text: this.currentNote ? loc.modalEditNote : loc.modalAddNote });
-    const previewEl = contentEl.createDiv({ cls: "annotation-modal-preview" });
-    const previewHeader = previewEl.createDiv({ cls: "annotation-modal-preview-header" });
-    previewHeader.createEl("strong", { text: loc.modalAnnotationText });
-    const copyBtn = previewHeader.createEl("button", {
-      cls: "annotation-copy-btn",
-      text: loc.copy
-    });
-    copyBtn.addEventListener("click", () => {
-      void navigator.clipboard.writeText(this.annotationText).then(() => {
-        copyBtn.textContent = loc.copied;
-        window.setTimeout(() => {
-          copyBtn.textContent = loc.copy;
-        }, 1500);
-      }).catch(() => {
-      });
-    });
-    const previewText = this.annotationText.length > 200 ? this.annotationText.substring(0, 200) + "..." : this.annotationText;
-    previewEl.createSpan({ text: previewText, cls: "annotation-modal-preview-text" });
-    const colorContainer = contentEl.createDiv({ cls: "annotation-color-picker" });
-    colorContainer.createEl("label", { text: loc.modalAnnotationColor });
-    const settingsMap = settings;
-    const colors = getActiveColors(settings);
-    for (const c of colors) {
-      const btn = colorContainer.createEl("button", { cls: `annotation-color-dot ${COLOR_CLASSES[c]}` });
-      const colorLabel = typeof settingsMap[`colorLabel${c}`] === "string" ? settingsMap[`colorLabel${c}`] : loc.colorLabel(c);
-      btn.title = c === "none" ? loc.none : colorLabel;
-      if (c === this.currentColor) btn.addClass("active");
-      btn.addEventListener("click", () => {
-        colorContainer.querySelectorAll(".annotation-color-dot").forEach((b) => b.removeClass("active"));
-        btn.addClass("active");
-        this.currentColor = c;
-      });
-    }
     const noteContainer = contentEl.createDiv({ cls: "annotation-note-container" });
     noteContainer.createEl("label", { text: loc.modalNoteLabel(maxLen) });
     this.noteInput = noteContainer.createEl("textarea", { cls: "annotation-note-input" });
@@ -3237,7 +3192,6 @@ var AnnotationMenu = class {
     this.menuEl = createDiv();
     this.menuEl.className = "annotation-card-menu annotation-view-menu";
     const header = this.menuEl.createDiv({ cls: "annotation-menu-header" });
-    header.createSpan({ text: loc.menuAnnotationDetail, cls: "annotation-menu-title" });
     const closeBtn = header.createEl("button", { cls: "annotation-menu-close", text: loc.close });
     closeBtn.addEventListener("click", () => this.hide());
     const textPreview = this.menuEl.createDiv({ cls: "annotation-menu-text" });
@@ -3256,7 +3210,6 @@ var AnnotationMenu = class {
       noteSection.createDiv({ cls: "annotation-note-text", text: annotation.note });
     }
     const colorSection = this.menuEl.createDiv({ cls: "annotation-menu-section" });
-    colorSection.createEl("label", { text: loc.sidebarAnnotationColor });
     const colorContainer = colorSection.createDiv({ cls: "annotation-color-buttons" });
     const colors = getActiveColors(settings);
     for (const c of colors) {
@@ -3373,7 +3326,6 @@ var AnnotationMenu = class {
       this.app,
       this.getSettings,
       {
-        text: annotation.text,
         note: annotation.note,
         color: annotation.color
       },
@@ -3485,13 +3437,14 @@ function highlightAnnotationElements(containerEl, annotationId) {
 
 // src/ui/AnnotationListPanel.ts
 var AnnotationListPanel = class {
-  constructor(app, fileManager) {
+  constructor(app, fileManager, getSettings) {
     this.containerEl = null;
     this.panelEl = null;
     this.listBtn = null;
     this.currentNotePath = null;
     this.onUpdate = null;
     this.sortOption = "position-asc";
+    this.colorFilter = "all";
     this.panelClickHandler = null;
     // 右键删除确认小菜单：面板关闭时一并回收，避免残留
     this.contextMenuEl = null;
@@ -3511,6 +3464,7 @@ var AnnotationListPanel = class {
     this.dragEndHandler = null;
     this.app = app;
     this.fileManager = fileManager;
+    this.getSettings = getSettings;
   }
   show(params) {
     this.currentNotePath = params.notePath;
@@ -3524,7 +3478,7 @@ var AnnotationListPanel = class {
     if (!this.containerEl) return;
     this.listBtn = createDiv();
     this.listBtn.className = "annotation-list-btn";
-    this.listBtn.createSpan({ text: "\u{1F4DD}" });
+    (0, import_obsidian10.setIcon)(this.listBtn, "list");
     this.listBtn.title = t().panelViewAnnotation;
     this.containerEl.appendChild(this.listBtn);
     this.listBtn.addEventListener("click", (e) => {
@@ -3602,8 +3556,10 @@ var AnnotationListPanel = class {
     panel.className = "annotation-list-panel";
     const header = panel.createDiv({ cls: "annotation-list-header" });
     header.createSpan({ text: loc.panelTitle, cls: "annotation-list-title" });
-    const sortContainer = header.createDiv({ cls: "annotation-list-sort-container" });
-    const sortSelect = sortContainer.createEl("select", { cls: "annotation-list-sort-select" });
+    const closeBtn = header.createEl("button", { cls: "annotation-list-close", text: loc.close });
+    closeBtn.addEventListener("click", () => this.hidePanel());
+    const toolbar = panel.createDiv({ cls: "annotation-list-toolbar" });
+    const sortSelect = toolbar.createEl("select", { cls: "annotation-list-sort-select" });
     const opts = [
       { v: "position-asc", t: loc.panelSortContentAsc },
       { v: "position-desc", t: loc.panelSortContentDesc },
@@ -3621,8 +3577,63 @@ var AnnotationListPanel = class {
       this.sortOption = sortSelect.value;
       void this.refreshContent();
     });
-    const closeBtn = header.createEl("button", { cls: "annotation-list-close", text: loc.close });
-    closeBtn.addEventListener("click", () => this.hidePanel());
+    const settings = this.getSettings();
+    const settingsMap = settings;
+    const filterWrap = toolbar.createDiv({ cls: "annotation-list-filter-wrap" });
+    const filterBtn = filterWrap.createEl("button", { cls: "annotation-list-filter-btn" });
+    filterBtn.title = loc.panelFilterLabel;
+    (0, import_obsidian10.setIcon)(filterBtn, "filter");
+    const updateBtnState = () => {
+      filterBtn.toggleClass("filter-on", this.colorFilter !== "all");
+    };
+    updateBtnState();
+    let popover = null;
+    const closePopover = () => {
+      popover == null ? void 0 : popover.remove();
+      popover = null;
+      activeDocument.removeEventListener("click", outsideClose, true);
+    };
+    const outsideClose = (e) => {
+      if (popover && !popover.contains(e.target) && !filterBtn.contains(e.target)) {
+        closePopover();
+      }
+    };
+    const buildPopover = () => {
+      popover = createDiv({ cls: "annotation-list-filter-popover" });
+      const allOpt = popover.createEl("button", {
+        cls: "annotation-list-filter-all" + (this.colorFilter === "all" ? " active" : ""),
+        text: loc.panelFilterAll
+      });
+      allOpt.addEventListener("click", (e) => {
+        e.stopPropagation();
+        this.colorFilter = "all";
+        updateBtnState();
+        void this.refreshContent();
+        closePopover();
+      });
+      const dotsRow = popover.createDiv({ cls: "annotation-list-filter-dots" });
+      for (const c of getActiveColors(settings)) {
+        const colorLabel = typeof settingsMap[`colorLabel${c}`] === "string" ? settingsMap[`colorLabel${c}`] : loc.colorLabel(c);
+        const dot = dotsRow.createEl("button", {
+          cls: `hl-h-color-dot annotation-sidebar-color-btn ${COLOR_CLASSES[c]}` + (this.colorFilter === c ? " active" : "")
+        });
+        dot.title = c === "none" ? loc.none : colorLabel;
+        dot.addEventListener("click", (e) => {
+          e.stopPropagation();
+          this.colorFilter = c;
+          updateBtnState();
+          void this.refreshContent();
+          closePopover();
+        });
+      }
+      filterWrap.appendChild(popover);
+      window.setTimeout(() => activeDocument.addEventListener("click", outsideClose, true), 10);
+    };
+    filterBtn.addEventListener("click", (e) => {
+      e.stopPropagation();
+      if (popover) closePopover();
+      else buildPopover();
+    });
     const content = panel.createDiv({ cls: "annotation-list-content" });
     await this.renderContent(content);
     if (this.panelEl !== panel || !this.containerEl) return;
@@ -3726,7 +3737,12 @@ var AnnotationListPanel = class {
         sorted.sort((a, b) => b.color.localeCompare(a.color));
         break;
     }
-    for (const annotation of sorted) {
+    const filtered = this.colorFilter === "all" ? sorted : sorted.filter((a) => a.color === this.colorFilter);
+    if (filtered.length === 0) {
+      content.createDiv({ cls: "annotation-list-empty", text: loc.sidebarNoMatch });
+      return;
+    }
+    for (const annotation of filtered) {
       const item = content.createDiv({ cls: "annotation-list-item" });
       item.createSpan({ cls: `annotation-list-dot ${COLOR_CLASSES[annotation.color]}` });
       if (annotation.isFullText && annotation.positions.length > 1) {
@@ -5246,6 +5262,7 @@ var AnnotationSidebarView = class extends import_obsidian16.ItemView {
     this.exportBtn = null;
     this.tabs = { current: null, all: null };
     this.colorBtns = /* @__PURE__ */ new Map();
+    this.colorRowEl = null;
     this.showArchivedBtn = null;
     this.tagFilterSelect = null;
     // AnnoCard 工具栏按钮
@@ -5510,6 +5527,19 @@ var AnnotationSidebarView = class extends import_obsidian16.ItemView {
       void this.renderCards();
     });
     const colorRow = filterArea.createDiv({ cls: "hl-color-row" });
+    this.colorRowEl = colorRow;
+    this.rebuildColorFilterRow();
+  }
+  // 重建颜色筛选圆点行（设置里增删颜色后联动刷新）
+  rebuildColorFilterRow() {
+    const colorRow = this.colorRowEl;
+    if (!colorRow) return;
+    const activeList = getActiveColors(this.plugin.settings);
+    if (this.colorFilter !== "all" && !activeList.includes(this.colorFilter)) {
+      this.colorFilter = "all";
+    }
+    colorRow.empty();
+    this.colorBtns.clear();
     colorRow.createSpan({ cls: "hl-row-label", text: t().sidebarFilterLabel });
     const allBtn = colorRow.createEl("button", {
       cls: "hl-h-color-dot annotation-sidebar-color-btn annotation-sidebar-color-all active hl-dot-all",
@@ -5536,6 +5566,12 @@ var AnnotationSidebarView = class extends import_obsidian16.ItemView {
       });
       this.colorBtns.set(color, btn);
     }
+    this.updateColorBtnState();
+  }
+  // 设置里颜色增删后的联动入口（AnnotationSettingTab 调用）
+  refreshColorFilter() {
+    this.rebuildColorFilterRow();
+    void this.renderCards();
   }
   // 刷新标签筛选下拉框的选项(基于当前缓存的全库/单文件标签集合)
   refreshTagFilterOptions() {
@@ -7258,7 +7294,7 @@ var AnnotationPlugin = class extends import_obsidian19.Plugin {
     if (oldPanel) {
       oldPanel.hide();
     }
-    const panel = new AnnotationListPanel(this.app, this.fileManager);
+    const panel = new AnnotationListPanel(this.app, this.fileManager, () => this.settings);
     this.annotationPanels.set(leaf, panel);
     panel.show({
       notePath,

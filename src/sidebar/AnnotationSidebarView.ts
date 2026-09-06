@@ -50,6 +50,7 @@ export class AnnotationSidebarView extends ItemView {
   private exportBtn: HTMLElement | null = null;
   private tabs: Record<SidebarMode, HTMLElement> = { current: null!, all: null! };
   private colorBtns: Map<string, HTMLElement> = new Map();
+  private colorRowEl: HTMLElement | null = null;
   private showArchivedBtn: HTMLElement | null = null;
   private tagFilterSelect: HTMLSelectElement | null = null;
   // AnnoCard 工具栏按钮
@@ -378,6 +379,21 @@ export class AnnotationSidebarView extends ItemView {
 
     // === 筛选行：颜色圆点 ===
     const colorRow = filterArea.createDiv({ cls: "hl-color-row" });
+    this.colorRowEl = colorRow;
+    this.rebuildColorFilterRow();
+  }
+
+  // 重建颜色筛选圆点行（设置里增删颜色后联动刷新）
+  private rebuildColorFilterRow(): void {
+    const colorRow = this.colorRowEl;
+    if (!colorRow) return;
+    const activeList = getActiveColors(this.plugin.settings);
+    // 当前筛选色被停用则回退到"全部"
+    if (this.colorFilter !== "all" && !activeList.includes(this.colorFilter)) {
+      this.colorFilter = "all";
+    }
+    colorRow.empty();
+    this.colorBtns.clear();
     colorRow.createSpan({ cls: "hl-row-label", text: t().sidebarFilterLabel });
 
     // "全部"按钮（彩虹圈样式）
@@ -408,6 +424,13 @@ export class AnnotationSidebarView extends ItemView {
       });
       this.colorBtns.set(color, btn);
     }
+    this.updateColorBtnState();
+  }
+
+  // 设置里颜色增删后的联动入口（AnnotationSettingTab 调用）
+  refreshColorFilter(): void {
+    this.rebuildColorFilterRow();
+    void this.renderCards();
   }
 
   // 刷新标签筛选下拉框的选项(基于当前缓存的全库/单文件标签集合)
