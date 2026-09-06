@@ -1,7 +1,7 @@
 {
   "id": "annocard",
   "name": "AnnoCard",
-  "version": "0.1.0",
+  "version": "2.0.0",
   "minAppVersion": "1.4.0",
   "description": "独立标注数据 + 卡片化管理：高亮、批注、标签、批量删除、复习模式 | Standalone annotation data + card management: highlights, notes, tags, batch delete, review mode.",
   "author": "融合自 uuq007 (annotation-marker) 与 PandoraReads (HiLighter)",
