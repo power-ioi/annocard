@@ -1,3 +1,4 @@
+import { setIcon } from "obsidian";
 import type { ParsedAnnotation } from "../types";
 import { COLOR_CLASSES } from "../constants";
 import { t } from "../i18n";
@@ -105,49 +106,42 @@ export function createAnnotationCard(
     : annotation.text;
   textEl.textContent = previewText;
 
-  // 批注内容
-  let noteEl: HTMLElement | null = null;
+  // 批注内容（始终创建，空批注用 annocard-note-empty 隐藏，保证编辑按钮常驻可用）
+  const noteEl = card.createDiv({ cls: "annotation-sidebar-card-note" });
   if (annotation.note) {
-    noteEl = card.createDiv({ cls: "annotation-sidebar-card-note" });
     const noteText = annotation.note.length > 100
       ? annotation.note.substring(0, 100) + "..."
       : annotation.note;
     noteEl.textContent = noteText;
+  } else {
+    noteEl.addClass("annocard-note-empty");
   }
 
-  // 标签 chips
+  // 标签 chips（添加标签入口在卡片底部标签图标按钮）
+  const tagsEl = card.createDiv({ cls: "annocard-card-tags" });
   const tags = annotation.tags ?? [];
-  if (tags.length > 0 || options?.onAddTag) {
-    const tagsEl = card.createDiv({ cls: "annocard-card-tags" });
-    for (const tag of tags) {
-      const chip = tagsEl.createSpan({ cls: "annocard-tag-chip" });
-      chip.createSpan({ cls: "annocard-tag-chip-text", text: tag });
-      if (options?.onRemoveTag) {
-        const remove = chip.createSpan({ cls: "annocard-tag-chip-x", text: "×" });
-        remove.addEventListener("click", (e) => {
-          e.stopPropagation();
-          options.onRemoveTag!(cardData, tag);
-        });
-      }
-    }
-    if (options?.onAddTag) {
-      const addBtn = tagsEl.createSpan({ cls: "annocard-tag-chip-add", text: "+" });
-      addBtn.addEventListener("click", (e) => {
+  for (const tag of tags) {
+    const chip = tagsEl.createSpan({ cls: "annocard-tag-chip" });
+    chip.createSpan({ cls: "annocard-tag-chip-text", text: tag });
+    if (options?.onRemoveTag) {
+      const remove = chip.createSpan({ cls: "annocard-tag-chip-x", text: "×" });
+      remove.addEventListener("click", (e) => {
         e.stopPropagation();
-        options.onAddTag!(cardData, tagsEl);
+        options.onRemoveTag!(cardData, tag);
       });
     }
   }
 
-  // 操作按钮
+  // 操作按钮：底部一行小图标（编辑/打开/删除/标签）
   const actions = card.createDiv({ cls: "annotation-sidebar-card-actions" });
 
-  // 内联编辑批注按钮(Phase ④)
-  if (options?.onEditNote && noteEl) {
+  // 内联编辑批注按钮（常驻显示）
+  if (options?.onEditNote) {
     const editBtn = actions.createEl("button", {
-      text: t().cardEdit,
-      cls: "annotation-btn annotation-btn-secondary annocard-card-edit-btn",
+      cls: "annocard-icon-btn",
+      attr: { "aria-label": t().cardEdit },
     });
+    setIcon(editBtn, "pencil");
     editBtn.addEventListener("click", (e) => {
       e.stopPropagation();
       options.onEditNote!(cardData, noteEl!);
@@ -155,19 +149,35 @@ export function createAnnotationCard(
   }
 
   const openBtn = actions.createEl("button", {
-    text: loc.cardOpen,
-    cls: "annotation-btn annotation-btn-secondary",
+    cls: "annocard-icon-btn",
+    attr: { "aria-label": loc.cardOpen },
   });
+  setIcon(openBtn, "external-link");
+
   const deleteBtn = actions.createEl("button", {
-    text: loc.cardDelete,
-    cls: "annotation-btn annotation-btn-danger",
+    cls: "annocard-icon-btn annocard-icon-danger",
+    attr: { "aria-label": loc.cardDelete },
   });
+  setIcon(deleteBtn, "trash-2");
+
+  // 添加标签按钮：在标签区追加内联输入框
+  if (options?.onAddTag) {
+    const tagBtn = actions.createEl("button", {
+      cls: "annocard-icon-btn",
+      attr: { "aria-label": t().cardTagAddTitle },
+    });
+    setIcon(tagBtn, "tag");
+    tagBtn.addEventListener("click", (e) => {
+      e.stopPropagation();
+      options.onAddTag!(cardData, tagsEl);
+    });
+  }
 
   // 事件绑定
   card.addEventListener("click", (e) => {
     if ((e.target as HTMLElement).closest("button")) return;
     if ((e.target as HTMLElement).closest(".annocard-tag-chip-x")) return;
-    if ((e.target as HTMLElement).closest(".annocard-tag-chip-add")) return;
+    if ((e.target as HTMLElement).closest(".annocard-tag-input")) return;
     if ((e.target as HTMLElement).closest(".annocard-card-checkbox")) return;
     handlers.onClick(cardData);
   });

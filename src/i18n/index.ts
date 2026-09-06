@@ -117,6 +117,11 @@ export interface LocaleDict {
   sidebarTitle: string;
   sidebarCurrentNote: string;
   sidebarAllNotes: string;
+  sidebarExpandAll: string;
+  sidebarCollapseAll: string;
+  sidebarSortLabel: string;
+  sidebarSearchLabel: string;
+  sidebarFilterLabel: string;
   sidebarSearchPlaceholder: string;
   sidebarSortContent: string;
   sidebarSortContentDesc: string;
@@ -164,10 +169,10 @@ export interface LocaleDict {
   cardReviewExit: string;
   cardReviewNext: string;
   cardReviewPrev: string;
-  cardReviewAgain: string;
-  cardReviewMastered: string;
+  cardReviewRemember: string;
+  cardReviewForget: string;
   cardReviewEmpty: string;
-  cardReviewStat: (n: number, m: number) => string;
+  cardReviewStat: (n: number, r: number, f: number) => string;
   cardReviewProgress: (cur: number, total: number) => string;
   cardTagAddPlaceholder: string;
   cardTagAddConfirm: string;

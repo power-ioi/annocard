@@ -1,4 +1,4 @@
-﻿/* 弹出标注菜单时，原选区的临时高亮（CSS Custom Highlight API，配合 selectionHighlight.ts） */
+/* 弹出标注菜单时，原选区的临时高亮（CSS Custom Highlight API，配合 selectionHighlight.ts） */
 ::highlight(annotation-selection-active) {
   background-color: var(--text-selection);
 }
@@ -1713,27 +1713,6 @@ ruby[data-annotation-id] rt[data-annotation-id] {
   }
 }
 
-.annocard-tag-chip-add {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: 22px;
-  height: 22px;
-  border-radius: 50%;
-  border: 1px dashed var(--background-modifier-border);
-  color: var(--text-muted);
-  cursor: pointer;
-  font-size: 14px;
-  user-select: none;
-}
-
-@media (hover: hover) {
-  .annocard-tag-chip-add:hover {
-    border-color: var(--interactive-accent);
-    color: var(--interactive-accent);
-  }
-}
-
 /* 内联标签输入框(在 tags 区追加) */
 .annocard-tag-input {
   padding: 2px 6px;
@@ -2261,31 +2240,11 @@ ruby[data-annotation-id] rt[data-annotation-id] {
   opacity: 1;
   color: #ff5e5e;
 }
-.annocard-tag-chip-add {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: 22px;
-  height: 22px;
-  border-radius: 50%;
-  background: rgba(var(--background-secondary-rgb), 0.4);
-  color: var(--text-muted);
-  cursor: pointer;
-  font-size: 14px;
-  font-weight: 500;
-  transition: all 0.2s;
-  border: 1px dashed var(--annocard-glass-border);
-}
-.annocard-tag-chip-add:hover {
-  background: var(--annocard-accent);
-  color: #fff;
-  transform: rotate(90deg);
-  border-color: transparent;
-}
 
 /* —— 操作按钮：HiLighter 风格 —— */
 .annotation-sidebar-card-actions {
   display: flex;
+  justify-content: flex-end;
   gap: 6px;
   margin-top: 8px;
 }
@@ -2445,7 +2404,9 @@ ruby[data-annotation-id] rt[data-annotation-id] {
    ============================================================ */
 
 /* —— 工具栏：HiLighter 毛玻璃卡片 —— */
-.annotation-sidebar-view .annotation-sidebar-toolbar.hl-highlight-toolbar {
+/* 注意：真实 DOM 中工具栏位于 .view-content.annotation-sidebar 下，无 .annotation-sidebar-view 类，故不加前缀 */
+.annotation-sidebar-toolbar.hl-highlight-toolbar {
+  display: block;
   background: var(--hl-glass-bg, var(--annocard-glass-bg));
   backdrop-filter: blur(12px);
   -webkit-backdrop-filter: blur(12px);
@@ -2493,7 +2454,7 @@ ruby[data-annotation-id] rt[data-annotation-id] {
 .hl-btn-subtle.annotation-sidebar-tab.is-active {
   background: var(--annocard-accent) !important;
   color: #fff !important;
-  box-shadow: 0 4px 14px rgba(var(--annocard-accent-rgb), 0.35) !important;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06) !important;
 }
 .theme-dark .hl-btn-subtle.annotation-sidebar-tab {
   background: rgba(255, 255, 255, 0.05) !important;
@@ -2536,7 +2497,7 @@ ruby[data-annotation-id] rt[data-annotation-id] {
 .hl-btn-all.is-active {
   background: var(--annocard-accent) !important;
   color: #fff !important;
-  box-shadow: 0 4px 14px rgba(var(--annocard-accent-rgb), 0.35) !important;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06) !important;
 }
 .hl-btn-all.is-hidden { display: none !important; }
 .theme-dark .hl-btn-all,
@@ -2607,16 +2568,18 @@ ruby[data-annotation-id] rt[data-annotation-id] {
 /* 筛选行 */
 .hl-color-row {
   display: flex;
-  gap: 10px;
+  gap: 3px;
   width: 100%;
   align-items: center;
-  flex-wrap: wrap;
+  flex-wrap: nowrap;
 }
 
 /* HiLighter 颜色圆点 */
 .hl-h-color-dot.annotation-sidebar-color-btn {
-  width: 26px;
-  height: 26px;
+  width: 14px;
+  height: 14px;
+  min-width: 14px;
+  min-height: 14px;
   border-radius: 50%;
   cursor: pointer;
   border: none !important;
@@ -2627,14 +2590,14 @@ ruby[data-annotation-id] rt[data-annotation-id] {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  font-size: 14px;
+  font-size: 9px;
   line-height: 1;
 }
 .hl-h-color-dot.annotation-sidebar-color-btn:hover {
-  transform: scale(1.35);
+  transform: scale(1.6);
 }
 .hl-h-color-dot.annotation-sidebar-color-btn.is-active {
-  transform: scale(1.2);
+  transform: scale(1.35);
   box-shadow: 0 0 0 2px var(--annocard-accent), 0 0 12px rgba(var(--annocard-accent-rgb), 0.4);
 }
 
@@ -2694,13 +2657,250 @@ ruby[data-annotation-id] rt[data-annotation-id] {
 
 /* 移动端：缩小圆点 */
 .is-mobile .hl-h-color-dot.annotation-sidebar-color-btn {
-  width: 22px;
-  height: 22px;
+  width: 17px;
+  height: 17px;
 }
 .is-mobile .hl-btn-subtle.annotation-sidebar-tab,
 .is-mobile .hl-btn-all {
   font-size: 11px !important;
-  padding: 7px 8px !important;
+  padding: 4px 6px !important;
+}
+
+/* ============================================================
+   AnnoCard v2：紧凑工具栏 + 卡片折叠 + 底部图标按钮
+   ============================================================ */
+
+/* 顶部行：左侧按钮组（展开/折叠/当前/全部/顺序），强制单行 */
+.hl-toolbar-top {
+  flex-wrap: nowrap;
+}
+.annocard-top-left {
+  flex-wrap: nowrap;
+  flex: 1 1 auto;
+  min-width: 0;
+  align-items: center;
+  gap: 4px !important;
+}
+.annocard-top-left .hl-btn-subtle.annotation-sidebar-tab {
+  flex: 0 0 auto !important;
+  padding: 4px 7px !important;
+  font-size: 11px !important;
+  white-space: nowrap;
+}
+.annocard-top-left .hl-btn-all {
+  padding: 4px 7px !important;
+  font-size: 11px !important;
+  white-space: nowrap;
+}
+.annocard-sort-label {
+  margin: 0;
+  font-size: 11px;
+  min-width: auto;
+}
+.annocard-top-left .hl-color-select.annotation-sidebar-sort-select {
+  flex: 1 1 60px;
+  min-width: 0;
+  padding: 4px 2px !important;
+  font-size: 11px !important;
+}
+/* 第二行：顺序 + 导出/批量/复习 */
+.annocard-toolbar-second {
+  margin-top: 8px;
+}
+/* 颜色行的"筛选"标签紧凑化 */
+.hl-color-row .hl-row-label {
+  min-width: auto;
+  font-size: 11px;
+  margin-right: 2px;
+  flex-shrink: 0;
+}
+/* 第一行的标签筛选下拉（紧跟"全部"之后） */
+.annocard-top-left .hl-color-select.annotation-sidebar-tag-select {
+  flex: 1 1 44px;
+  min-width: 0;
+  padding: 4px 2px !important;
+  font-size: 11px !important;
+}
+/* 右侧图标按钮组 */
+.annocard-top-right {
+  margin-left: auto;
+  flex-shrink: 0;
+  align-items: center;
+  gap: 4px !important;
+}
+.hl-btn-all.annocard-icon-toolbar-btn {
+  width: 26px;
+  height: 26px;
+  padding: 0 !important;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+.hl-btn-all.annocard-icon-toolbar-btn svg {
+  width: 14px;
+  height: 14px;
+}
+
+/* 卡片底部小图标按钮（编辑/打开/删除/标签） */
+.annocard-icon-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 26px;
+  height: 22px;
+  padding: 0 !important;
+  border: none !important;
+  border-radius: 6px !important;
+  background: rgba(var(--background-secondary-rgb), 0.4) !important;
+  color: var(--text-muted) !important;
+  cursor: pointer;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.05);
+  transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+}
+.annocard-icon-btn svg {
+  width: 14px;
+  height: 14px;
+}
+.annocard-icon-btn:hover {
+  background: var(--annocard-accent) !important;
+  color: #fff !important;
+  transform: translateY(-1px);
+  box-shadow: 0 4px 10px rgba(0, 0, 0, 0.08);
+}
+.annocard-icon-btn.annocard-icon-danger:hover {
+  background: #ff5e5e !important;
+}
+.theme-dark .annocard-icon-btn {
+  background: rgba(255, 255, 255, 0.05) !important;
+}
+.theme-dark .annocard-icon-btn:hover {
+  background: rgba(255, 255, 255, 0.12) !important;
+}
+.theme-dark .annocard-icon-btn.annocard-icon-danger:hover {
+  background: #ff5e5e !important;
+}
+
+/* 空标签区不占位 */
+.annocard-card-tags:empty {
+  display: none;
+}
+
+/* 折叠模式：隐藏批注与标签（保留标注原文），含内联标签输入框时标签区保持可见 */
+.annotation-sidebar-card-list.annocard-cards-collapsed .annotation-sidebar-card-note {
+  display: none;
+}
+.annotation-sidebar-card-list.annocard-cards-collapsed .annocard-card-tags:not(:has(.annocard-tag-input)) {
+  display: none;
+}
+
+/* 空批注占位（无批注内容时不显示，编辑按钮仍常驻） */
+.annotation-sidebar-card-note.annocard-note-empty {
+  display: none;
 }
 
 
+
+/* 复习模式:右上方分类筛选按钮(记住/忘记) */
+.annocard-review-filter {
+  min-width: 64px;
+}
+.annocard-review-filter.is-active {
+  background: var(--interactive-accent);
+  color: #ffffff;
+  border-color: transparent;
+}
+
+
+/* 复习模式:顶部按钮缩小 */
+.annocard-review-header .annotation-btn {
+  padding: 3px 10px;
+  font-size: 12px;
+  min-height: 0;
+  line-height: 1.4;
+}
+.annocard-review-filter {
+  min-width: 0;
+}
+/* 复习模式:底部固定操作栏(卡片外常驻) */
+.annocard-review-actions-bar {
+  position: sticky;
+  bottom: 0;
+  display: flex;
+  gap: 8px;
+  justify-content: center;
+  padding: 12px 16px;
+  background: var(--background-primary);
+  border-top: 1px solid var(--background-modifier-border);
+  z-index: 5;
+}
+.annocard-review-actions-bar .annotation-btn {
+  min-width: 88px;
+}
+
+
+/* ========== 复习模式:顶部按钮美化 ========== */
+.annocard-review-header .annotation-btn {
+  padding: 5px 16px;
+  font-size: 12.5px;
+  min-height: 0;
+  line-height: 1.5;
+  border-radius: 999px;
+  font-weight: 500;
+  letter-spacing: 0.02em;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.07);
+  transition: background 0.15s ease, color 0.15s ease, transform 0.15s ease, box-shadow 0.15s ease;
+}
+.annocard-review-filter {
+  min-width: 0;
+}
+.annocard-review-header .annotation-btn:hover {
+  transform: translateY(-1px);
+}
+
+/* 记住筛选:绿色语义 */
+.annocard-filter-remember {
+  color: #3a9e52;
+  border-color: rgba(58, 158, 82, 0.55);
+  background: rgba(58, 158, 82, 0.06);
+}
+.annocard-filter-remember.is-active {
+  background: #3a9e52;
+  color: #ffffff;
+  border-color: transparent;
+  box-shadow: 0 2px 10px rgba(58, 158, 82, 0.4);
+}
+
+/* 忘记筛选:红色语义 */
+.annocard-filter-forget {
+  color: #d0524e;
+  border-color: rgba(208, 82, 78, 0.55);
+  background: rgba(208, 82, 78, 0.06);
+}
+.annocard-filter-forget.is-active {
+  background: #d0524e;
+  color: #ffffff;
+  border-color: transparent;
+  box-shadow: 0 2px 10px rgba(208, 82, 78, 0.35);
+}
+
+/* 退出按钮:淡化幽灵风格 */
+.annocard-review-exit {
+  margin-left: 6px;
+  background: transparent;
+  border-color: transparent;
+  color: var(--text-muted);
+  box-shadow: none;
+  padding: 5px 12px;
+}
+.annocard-review-exit:hover {
+  color: var(--text-error, #d0524e);
+  background: rgba(208, 82, 78, 0.08);
+  transform: none;
+}
+
+/* 进度数字微调 */
+.annocard-review-progress {
+  font-size: 13px;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: 0.03em;
+}

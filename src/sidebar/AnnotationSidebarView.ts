@@ -1,5 +1,5 @@
-import { ItemView, MarkdownView, Notice, normalizePath, TFile, WorkspaceLeaf } from "obsidian";
-import type { AnnotationColor, AnnotationRuby, ParsedAnnotation } from "../types";
+import { ItemView, MarkdownView, Notice, normalizePath, setIcon, TFile, WorkspaceLeaf } from "obsidian";
+import type { AnnotationColor, ParsedAnnotation } from "../types";
 import { COLOR_CLASSES, getActiveColors } from "../constants";
 import { annotationPathToNotePath, getViewFilePath } from "../utils/helpers";
 import { AnnotationFileManager } from "../annotationFile/AnnotationFileManager";
@@ -38,6 +38,8 @@ export class AnnotationSidebarView extends ItemView {
   // AnnoCard 批量模式
   private batchMode = false;
   private batchSelectedIds: Set<string> = new Set();
+  // AnnoCard 卡片内容折叠状态(true=隐藏标注内容与标签)
+  private cardsCollapsed = false;
   // AnnoCard 复习模式实例(打开时非空)
   private reviewMode: ReviewMode | null = null;
 
@@ -53,18 +55,12 @@ export class AnnotationSidebarView extends ItemView {
   // AnnoCard 工具栏按钮
   private batchBtn: HTMLElement | null = null;
   private reviewBtn: HTMLElement | null = null;
+  private expandBtn: HTMLElement | null = null;
+  private collapseBtn: HTMLElement | null = null;
   private batchBar: HTMLElement | null = null;
   private batchSelectedCount: HTMLElement | null = null;
   // 标签候选缓存(全库模式刷新时同步,供 TagSuggest 用)
   private allTagCandidates: string[] = [];
-
-  // 详情面板状态
-  private detailCardData: AnnotationCardData | null = null;
-  private detailIsEditing = false;
-  // 编辑态暂存
-  private editColor: AnnotationColor = "1";
-  private editNote = "";
-  private editRubyTexts: AnnotationRuby[] = [];
 
   // 全部笔记模式缓存
   private allAnnotationsCache: AnnotationCardData[] | null = null;
@@ -112,11 +108,12 @@ export class AnnotationSidebarView extends ItemView {
     container.addClass("annotation-sidebar");
 
     this.renderToolbar(container);
-    this.renderTabs(container);
     this.renderSearchBar(container);
     this.renderBatchBar(container);
 
     this.cardListEl = container.createDiv({ cls: "annotation-sidebar-card-list" });
+    // 同步折叠初始状态(默认展开)
+    this.setCardsCollapsed(this.cardsCollapsed);
     // AnnoCard:列表区滚动加载更多(分页)
     if (this.cardListEl) {
       this.cardListEl.addEventListener("scroll", () => {
@@ -129,7 +126,7 @@ export class AnnotationSidebarView extends ItemView {
     // 注册事件
     this.registerEvent(
       this.app.workspace.on("active-leaf-change", () => {
-        if (this.mode === "current" && !this.detailCardData) {
+        if (this.mode === "current") {
           const activeFile = this.app.workspace.getActiveFile();
           const currentPath = activeFile?.path ?? null;
           if (currentPath === this.lastRefreshedNotePath) return;
@@ -144,12 +141,6 @@ export class AnnotationSidebarView extends ItemView {
 
     // 注册刷新回调（保存引用，onClose 时用同一引用精确注销）
     this.boundAnnotationChange = () => {
-      if (this.detailCardData) {
-        // 详情面板打开中：closeDetailPanel 内部已重新渲染卡片列表，
-        // 再走 refresh 会双跑一轮全量加载，直接返回
-        this.closeDetailPanel();
-        return;
-      }
       void this.refresh();
     };
     this.plugin.annotationChangeCallbacks.push(this.boundAnnotationChange);
@@ -182,7 +173,6 @@ export class AnnotationSidebarView extends ItemView {
       this.reviewMode = null;
     }
     this.allAnnotationsCache = null;
-    this.detailCardData = null;
   }
 
   // ========== 渲染方法 ==========
@@ -191,15 +181,31 @@ export class AnnotationSidebarView extends ItemView {
     // HiLighter 风格：顶部彩色标签行 + 工具栏按钮
     const toolbar = container.createDiv({ cls: "annotation-sidebar-toolbar hl-highlight-toolbar" });
 
-    // 顶部标签行：模式切换（本文/全库）+ 操作按钮（导出/批量/复习）
+    // 第一行：展开/折叠 + 范围切换（当前/全部）+ 标签筛选
     const topRow = toolbar.createDiv({ cls: "hl-toolbar-top" });
 
-    // HiLighter 风格彩色标签：本文 / 全库
-    this.tabs.current = topRow.createEl("button", {
+    // 左侧按钮组
+    const left = topRow.createDiv({ cls: "hl-toolbar-actions annocard-top-left" });
+
+    // 展开/折叠：控制所有卡片的标注内容与标签显隐
+    this.expandBtn = left.createEl("button", {
+      cls: "hl-btn-all annocard-btn-expand",
+      text: t().sidebarExpandAll,
+    });
+    this.expandBtn.addEventListener("click", () => this.setCardsCollapsed(false));
+
+    this.collapseBtn = left.createEl("button", {
+      cls: "hl-btn-all annocard-btn-collapse",
+      text: t().sidebarCollapseAll,
+    });
+    this.collapseBtn.addEventListener("click", () => this.setCardsCollapsed(true));
+
+    // 范围切换：当前笔记 / 全部笔记
+    this.tabs.current = left.createEl("button", {
       cls: "hl-btn-subtle annotation-sidebar-tab hl-tab-current",
       text: t().sidebarCurrentNote,
     });
-    this.tabs.all = topRow.createEl("button", {
+    this.tabs.all = left.createEl("button", {
       cls: "hl-btn-subtle annotation-sidebar-tab hl-tab-all",
       text: t().sidebarAllNotes,
     });
@@ -208,30 +214,54 @@ export class AnnotationSidebarView extends ItemView {
     this.tabs.current.addEventListener("click", () => this.switchMode("current"));
     this.tabs.all.addEventListener("click", () => this.switchMode("all"));
 
-    // 右侧操作按钮组
-    const actions = topRow.createDiv({ cls: "hl-toolbar-actions" });
+    // 标签筛选下拉（置于"全部"之后）
+    this.tagFilterSelect = left.createEl("select", {
+      cls: "hl-color-select annotation-sidebar-tag-select",
+    });
+    this.tagFilterSelect.addEventListener("change", () => {
+      if (!this.tagFilterSelect) return;
+      const v = this.tagFilterSelect.value;
+      if (!v) {
+        this.tagFilter.clear();
+      } else {
+        this.tagFilter.clear();
+        this.tagFilter.add(v);
+      }
+      void this.renderCards();
+    });
+    this.refreshTagFilterOptions();
 
-    // 排序下拉（HiLighter 风格）
-    this.sortSelect = actions.createEl("select", { cls: "hl-color-select annotation-sidebar-sort-select" });
+    // 第二行：顺序排序 | 右侧图标按钮（导出/批量/复习）
+    const secondRow = toolbar.createDiv({ cls: "hl-toolbar-top annocard-toolbar-second" });
+    const sortGroup = secondRow.createDiv({ cls: "hl-toolbar-actions annocard-top-left" });
+
+    // 排序（带"顺序"标签）
+    sortGroup.createSpan({ cls: "hl-row-label annocard-sort-label", text: t().sidebarSortLabel });
+    this.sortSelect = sortGroup.createEl("select", { cls: "hl-color-select annotation-sidebar-sort-select" });
     this.sortSelect.addEventListener("change", () => {
       this.sortOption = this.sortSelect!.value as SortOption;
       void this.renderCards();
     });
     this.updateSortOptions();
 
+    // 右侧操作图标按钮
+    const actions = secondRow.createDiv({ cls: "hl-toolbar-actions annocard-top-right" });
+
     // 导出按钮（仅当前笔记模式）
     this.exportBtn = actions.createEl("button", {
-      cls: "hl-btn-all annotation-sidebar-export-btn",
-      text: t().sidebarExportBtn,
+      cls: "hl-btn-all annocard-icon-toolbar-btn annotation-sidebar-export-btn",
+      attr: { "aria-label": t().sidebarExportBtn },
     });
+    setIcon(this.exportBtn, "download");
     this.exportBtn.addEventListener("click", () => { void this.exportCurrentAnnotations(); });
     this.exportBtn.toggleClass("is-hidden", this.mode !== "current");
 
     // 批量模式开关
     this.batchBtn = actions.createEl("button", {
-      cls: "hl-btn-all annocard-toolbar-batch",
-      text: t().cardBatchMode,
+      cls: "hl-btn-all annocard-icon-toolbar-btn annocard-toolbar-batch",
+      attr: { "aria-label": t().cardBatchMode },
     });
+    setIcon(this.batchBtn, "list-checks");
     this.batchBtn.toggleClass("is-active", this.batchMode);
     this.batchBtn.addEventListener("click", () => {
       this.batchMode = !this.batchMode;
@@ -243,10 +273,19 @@ export class AnnotationSidebarView extends ItemView {
 
     // 复习模式入口
     this.reviewBtn = actions.createEl("button", {
-      cls: "hl-btn-all annocard-toolbar-review",
-      text: t().cardReviewStart,
+      cls: "hl-btn-all annocard-icon-toolbar-btn annocard-toolbar-review",
+      attr: { "aria-label": t().cardReviewStart },
     });
+    setIcon(this.reviewBtn, "graduation-cap");
     this.reviewBtn.addEventListener("click", () => this.startReview());
+  }
+
+  // 切换卡片内容折叠状态并同步按钮态
+  private setCardsCollapsed(collapsed: boolean): void {
+    this.cardsCollapsed = collapsed;
+    this.cardListEl?.toggleClass("annocard-cards-collapsed", collapsed);
+    this.expandBtn?.toggleClass("is-active", !collapsed);
+    this.collapseBtn?.toggleClass("is-active", collapsed);
   }
 
   private updateSortOptions(): void {
@@ -289,39 +328,15 @@ export class AnnotationSidebarView extends ItemView {
     this.sortSelect.value = this.sortOption;
   }
 
-  private renderTabs(container: HTMLElement): void {
-    const tabsEl = container.createDiv({ cls: "annotation-sidebar-tabs" });
-
-    this.tabs.current = tabsEl.createEl("button", {
-      cls: "annotation-sidebar-tab",
-      text: t().sidebarCurrentNote,
-    });
-    this.tabs.all = tabsEl.createEl("button", {
-      cls: "annotation-sidebar-tab",
-      text: t().sidebarAllNotes,
-    });
-    // AnnoCard:按当前 mode 标记 active(初值可能为 "all" 来自设置)
-    this.tabs.current.toggleClass("active", this.mode === "current");
-    this.tabs.all.toggleClass("active", this.mode === "all");
-    // 导出按钮可见性也需同步
-    if (this.exportBtn) {
-      this.exportBtn.toggleClass("is-hidden", this.mode !== "current");
-    }
-
-    this.tabs.current.addEventListener("click", () => this.switchMode("current"));
-    this.tabs.all.addEventListener("click", () => this.switchMode("all"));
-  }
-
   private switchMode(newMode: SidebarMode): void {
     if (this.mode === newMode) return;
     this.mode = newMode;
-    this.tabs.current.toggleClass("active", newMode === "current");
-    this.tabs.all.toggleClass("active", newMode === "all");
+    this.tabs.current.toggleClass("is-active", newMode === "current");
+    this.tabs.all.toggleClass("is-active", newMode === "all");
     if (this.exportBtn) {
       this.exportBtn.toggleClass("is-hidden", newMode !== "current");
     }
     this.updateSortOptions();
-    this.closeDetailPanel();
     void this.refresh();
   }
 
@@ -379,10 +394,12 @@ export class AnnotationSidebarView extends ItemView {
     this.colorBtns.set("all", allBtn);
 
     // 颜色圆点
+    const settingsMap = this.plugin.settings as unknown as Record<string, unknown>;
     for (const color of getActiveColors(this.plugin.settings)) {
+      const label = settingsMap[`colorLabel${color}`];
       const btn = colorRow.createEl("button", {
         cls: `hl-h-color-dot annotation-sidebar-color-btn ${COLOR_CLASSES[color]} hl-dot-${color}`,
-        attr: { title: this.plugin.settings[`color${color}Label`] ?? "" },
+        attr: { title: typeof label === "string" ? label : "" },
       });
       btn.addEventListener("click", () => {
         this.colorFilter = color;
@@ -391,23 +408,6 @@ export class AnnotationSidebarView extends ItemView {
       });
       this.colorBtns.set(color, btn);
     }
-
-    // 标签筛选（HiLighter 风格下拉）
-    this.tagFilterSelect = colorRow.createEl("select", {
-      cls: "hl-color-select annotation-sidebar-tag-select",
-    });
-    this.tagFilterSelect.addEventListener("change", () => {
-      if (!this.tagFilterSelect) return;
-      const v = this.tagFilterSelect.value;
-      if (!v) {
-        this.tagFilter.clear();
-      } else {
-        this.tagFilter.clear();
-        this.tagFilter.add(v);
-      }
-      void this.renderCards();
-    });
-    this.refreshTagFilterOptions();
   }
 
   // 刷新标签筛选下拉框的选项(基于当前缓存的全库/单文件标签集合)
@@ -568,8 +568,9 @@ export class AnnotationSidebarView extends ItemView {
         cardData.annotation.note = newNote;
         // 刷新对应标注视图
         await this.plugin.refreshAnnotationView(cardData.notePath);
-        // 更新 noteEl 内容
+        // 更新 noteEl 内容（空批注时保持隐藏占位类）
         noteEl.textContent = newNote;
+        noteEl.toggleClass("annocard-note-empty", !newNote);
         parent.replaceChild(noteEl, textarea);
         new Notice(t().cardNoticeNoteUpdated);
       } catch (e) {
@@ -695,8 +696,8 @@ export class AnnotationSidebarView extends ItemView {
     // 已打开则不重复启动
     if (this.reviewMode) return;
 
-    // 取未归档的卡片(忽略 showArchived 开关,复习只针对未掌握的)
-    const reviewCards = this.cachedSortedCards.filter((c) => !c.annotation.archived);
+    // 复习包含全部卡片(含已标记"记住"的),复习界面内可用右上筛选只看记住/忘记
+    const reviewCards = this.cachedSortedCards;
     if (reviewCards.length === 0) {
       new Notice(t().cardReviewEmpty);
       return;
@@ -737,7 +738,6 @@ export class AnnotationSidebarView extends ItemView {
     const modeSnapshot = this.mode;
 
     this.cardListEl.empty();
-    this.detailCardData = null;
 
     let cards: AnnotationCardData[];
 
@@ -813,7 +813,7 @@ export class AnnotationSidebarView extends ItemView {
 
     for (const cardData of batch) {
       createAnnotationCard(this.cardListEl, cardData, {
-        onClick: (data) => this.showDetailPanel(data),
+        onClick: () => { /* 点击卡片不再打开详情面板 */ },
         onOpen: (data) => { void this.handleCardOpen(data); },
         onDelete: (data) => this.handleCardDelete(data),
       }, {
@@ -961,260 +961,6 @@ export class AnnotationSidebarView extends ItemView {
     container.createDiv({ cls: "annotation-sidebar-empty", text: message });
   }
 
-  // ========== 详情面板 ==========
-
-  private showDetailPanel(cardData: AnnotationCardData): void {
-    if (!this.cardListEl) return;
-    this.detailCardData = cardData;
-    this.detailIsEditing = false;
-    this.editColor = cardData.annotation.color;
-    this.editNote = cardData.annotation.note;
-    this.editRubyTexts = [...cardData.annotation.rubyTexts];
-
-    this.cardListEl.empty();
-    this.renderDetailContent();
-  }
-
-  private closeDetailPanel(): void {
-    this.detailCardData = null;
-    this.detailIsEditing = false;
-    void this.renderCards();
-  }
-
-  private renderDetailContent(): void {
-    if (!this.cardListEl || !this.detailCardData) return;
-    this.cardListEl.empty();
-
-    const { annotation } = this.detailCardData;
-    const loc = t();
-
-    const panel = this.cardListEl.createDiv({ cls: "annotation-sidebar-detail" });
-
-    // 头部
-    const header = panel.createDiv({ cls: "annotation-sidebar-detail-header" });
-    header.createSpan({ cls: "annotation-sidebar-detail-title", text: loc.sidebarDetailTitle });
-    const closeBtn = header.createEl("button", {
-      cls: "annotation-sidebar-detail-close",
-      text: loc.close,
-    });
-    closeBtn.addEventListener("click", () => this.closeDetailPanel());
-
-    // 标注文字（可选中）
-    const textSection = panel.createDiv({ cls: "annotation-sidebar-detail-section" });
-    const textHeader = textSection.createDiv({ cls: "annotation-sidebar-detail-label-row" });
-    textHeader.createEl("label", { text: loc.sidebarAnnotationText });
-    const textCopyBtn = textHeader.createEl("button", { cls: "annotation-copy-btn", text: loc.copy });
-    textCopyBtn.addEventListener("click", () => {
-      void navigator.clipboard.writeText(annotation.text).then(() => {
-        textCopyBtn.textContent = loc.copied;
-        window.setTimeout(() => { textCopyBtn.textContent = loc.copy; }, 1500);
-      });
-    });
-    textSection.createDiv({ cls: "annotation-sidebar-detail-text", text: annotation.text });
-
-    // 全文/跨段标记
-    if (annotation.isFullText && annotation.positions.length > 1) {
-      textSection.createDiv({
-        cls: "annotation-list-badge",
-        text: loc.fullTextAnnotation(annotation.positions.length),
-      });
-    } else if (annotation.isCrossBlock) {
-      textSection.createDiv({
-        cls: "annotation-list-badge",
-        text: loc.crossBlockAnnotation(annotation.positions.length),
-      });
-    }
-
-    // 标注颜色
-    const colorSection = panel.createDiv({ cls: "annotation-sidebar-detail-section" });
-    colorSection.createEl("label", { text: loc.sidebarAnnotationColor });
-
-    if (this.detailIsEditing) {
-      const colorContainer = colorSection.createDiv({ cls: "annotation-color-buttons" });
-      for (const c of getActiveColors(this.plugin.settings)) {
-        const btn = colorContainer.createEl("button", {
-          cls: `annotation-color-dot ${COLOR_CLASSES[c]}`,
-        });
-        if (c === this.editColor) btn.addClass("active");
-        btn.addEventListener("click", () => {
-          this.editColor = c;
-          colorContainer.querySelectorAll(".annotation-color-dot")
-            .forEach((b) => b.removeClass("active"));
-          btn.addClass("active");
-        });
-      }
-    } else {
-      colorSection.createDiv({ cls: "annotation-sidebar-detail-color" }).createSpan({
-        cls: `annotation-list-dot ${COLOR_CLASSES[annotation.color]}`,
-      });
-    }
-
-    // 批注内容
-    const noteSection = panel.createDiv({ cls: "annotation-sidebar-detail-section" });
-    const noteHeader = noteSection.createDiv({ cls: "annotation-sidebar-detail-label-row" });
-    noteHeader.createEl("label", { text: loc.sidebarNoteSection });
-
-    const maxLen = this.plugin.settings.maxNoteLength;
-
-    if (this.detailIsEditing) {
-      const noteInput = noteSection.createEl("textarea", {
-        cls: "annotation-sidebar-detail-textarea",
-      });
-      noteInput.setAttribute("maxlength", String(maxLen));
-      noteInput.setAttribute("rows", "3");
-      noteInput.setAttribute("placeholder", loc.sidebarNoteEditPlaceholder);
-      noteInput.value = this.editNote;
-
-      const charCount = noteSection.createDiv({
-        cls: "annotation-char-count",
-        text: loc.charCount(this.editNote.length, maxLen),
-      });
-      noteInput.addEventListener("input", () => {
-        this.editNote = noteInput.value;
-        charCount.textContent = loc.charCount(noteInput.value.length, maxLen);
-        charCount.toggleClass("annotation-char-count-error", noteInput.value.length > maxLen);
-      });
-    } else {
-      if (annotation.note) {
-        const noteCopyBtn = noteHeader.createEl("button", { cls: "annotation-copy-btn", text: loc.sidebarNoteCopy });
-        noteCopyBtn.addEventListener("click", () => {
-          void navigator.clipboard.writeText(annotation.note).then(() => {
-            noteCopyBtn.textContent = loc.sidebarNoteCopied;
-            window.setTimeout(() => { noteCopyBtn.textContent = loc.sidebarNoteCopyRestore; }, 1500);
-          });
-        });
-      }
-      noteSection.createDiv({
-        cls: "annotation-sidebar-detail-note",
-        text: annotation.note || loc.sidebarNoteEmpty,
-      });
-    }
-
-    // 注音
-    if (annotation.rubyTexts.length > 0 || this.detailIsEditing) {
-      const rubySection = panel.createDiv({ cls: "annotation-sidebar-detail-section" });
-      rubySection.createEl("label", { text: loc.sidebarRubySection });
-
-      if (this.detailIsEditing) {
-        const rubyList = rubySection.createDiv({ cls: "annotation-sidebar-detail-ruby-list" });
-        const updateRubyList = () => {
-          rubyList.empty();
-          if (this.editRubyTexts.length === 0) {
-            rubyList.createDiv({ text: loc.noRuby, cls: "annotation-ruby-empty" });
-          } else {
-            for (let i = 0; i < this.editRubyTexts.length; i++) {
-              const ruby = this.editRubyTexts[i]!;
-              const item = rubyList.createDiv({ cls: "annotation-ruby-item" });
-              item.createSpan({
-                cls: "annotation-ruby-item-text",
-                text: `${annotation.text.substring(ruby.startIndex, ruby.startIndex + ruby.length)} → ${ruby.ruby}`,
-              });
-              const delBtn = item.createEl("button", {
-                text: loc.close,
-                cls: "annotation-ruby-item-delete",
-              });
-              delBtn.addEventListener("click", () => {
-                this.editRubyTexts.splice(i, 1);
-                updateRubyList();
-              });
-            }
-          }
-        };
-        updateRubyList();
-      } else {
-        const rubyList = rubySection.createDiv({ cls: "annotation-sidebar-detail-ruby-list" });
-        for (const ruby of annotation.rubyTexts) {
-          rubyList.createDiv({
-            cls: "annotation-ruby-item",
-            text: `${annotation.text.substring(ruby.startIndex, ruby.startIndex + ruby.length)} → ${ruby.ruby}`,
-          });
-        }
-      }
-    }
-
-    // 操作按钮
-    const actions = panel.createDiv({ cls: "annotation-sidebar-detail-actions" });
-
-    if (this.detailIsEditing) {
-      const saveBtn = actions.createEl("button", {
-        text: loc.save,
-        cls: "annotation-btn annotation-btn-primary",
-      });
-      saveBtn.addEventListener("click", () => { void this.handleDetailSave(); });
-
-      const cancelBtn = actions.createEl("button", {
-        text: loc.cancel,
-        cls: "annotation-btn annotation-btn-secondary",
-      });
-      cancelBtn.addEventListener("click", () => {
-        this.detailIsEditing = false;
-        this.editColor = annotation.color;
-        this.editNote = annotation.note;
-        this.editRubyTexts = [...annotation.rubyTexts];
-        this.renderDetailContent();
-      });
-    } else {
-      const editBtn = actions.createEl("button", {
-        text: loc.edit,
-        cls: "annotation-btn annotation-btn-secondary",
-      });
-      editBtn.addEventListener("click", () => {
-        this.detailIsEditing = true;
-        this.renderDetailContent();
-      });
-
-      const openBtn = actions.createEl("button", {
-        text: loc.sidebarOpenNote,
-        cls: "annotation-btn annotation-btn-secondary",
-      });
-      openBtn.addEventListener("click", () => {
-        if (this.detailCardData) void this.handleCardOpen(this.detailCardData);
-      });
-
-      const deleteBtn = actions.createEl("button", {
-        text: loc.sidebarDeleteAnnotation,
-        cls: "annotation-btn annotation-btn-danger",
-      });
-      deleteBtn.addEventListener("click", () => {
-        if (this.detailCardData) this.handleCardDelete(this.detailCardData);
-      });
-    }
-  }
-
-  // ========== 保存编辑 ==========
-
-  private async handleDetailSave(): Promise<void> {
-    if (!this.detailCardData) return;
-    const { annotation, notePath } = this.detailCardData;
-
-    // 查找标注视图
-    const view = this.findAnnotationView(notePath);
-    let edited = false;
-
-    if (view && view.getMode() === "source") {
-      edited = await editAnnotationInEditor(view, this.fileManager, notePath, annotation.id, {
-        color: this.editColor,
-        note: this.editNote,
-        rubyTexts: this.editRubyTexts.length > 0 ? this.editRubyTexts : undefined,
-        isFullText: annotation.isFullText,
-        isCrossBlock: annotation.isCrossBlock,
-      });
-    }
-
-    if (!edited) {
-      await this.fileManager.updateAnnotation(notePath, annotation.id, {
-        color: this.editColor,
-        note: this.editNote,
-        rubyTexts: this.editRubyTexts.length > 0 ? this.editRubyTexts : undefined,
-      });
-    }
-
-    // 刷新标注视图
-    await this.plugin.refreshAnnotationView(notePath);
-    this.closeDetailPanel();
-    new Notice(t().noticeAnnotationUpdated);
-  }
-
   // ========== 查找标注视图 ==========
 
   private findAnnotationView(notePath: string): MarkdownView | null {
@@ -1329,7 +1075,7 @@ export class AnnotationSidebarView extends ItemView {
         }
 
         await this.plugin.refreshAnnotationView(notePath);
-        this.closeDetailPanel();
+        void this.renderCards();
         new Notice(loc.noticeDeleted);
       },
       loc.delete

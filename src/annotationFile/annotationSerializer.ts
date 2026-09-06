@@ -8,7 +8,7 @@ import { computeSegments, buildSegmentHtml, buildCardAttrs, type Interval } from
 export class PartialWikiLinkError extends Error {
   constructor() { super("partialWikiLink"); }
 }
-import { parseAnnotations, stripAnnotationTags, findMatchingCloseMark } from "./annotationParser";
+import { parseAnnotations, stripAnnotationTags, findMatchingCloseMark, parseCardFields } from "./annotationParser";
 
 // 清理原生 <ruby> 标签（非插件生成）：移除 <rt> 内容和 <ruby> 标签本身
 function stripNativeRuby(text: string): string {
@@ -449,20 +449,24 @@ export function updateAnnotationTag(
       }
     }
 
-    // AnnoCard 卡片字段更新：先剥离旧属性，再追加新属性
+    // AnnoCard 卡片字段更新：先解析旧属性并与 updates 合并（updates 未提供的字段保留原值），
+    // 再剥离旧属性、整体回写——否则部分更新（如只改 archived）会丢失标签等未提供字段
     // （多 <mark> 同 ID 时每个标签都更新，保持与 note 一致的处理口径）
     if (hasCardUpdates) {
+      const oldFields = parseCardFields(newAttrs);
+      const merged = {
+        tags: updates.tags !== undefined ? updates.tags : oldFields.tags,
+        archived: updates.archived !== undefined ? updates.archived : oldFields.archived,
+        reviewCount: updates.reviewCount !== undefined ? updates.reviewCount : oldFields.reviewCount,
+        lastReviewedAt: updates.lastReviewedAt !== undefined ? updates.lastReviewedAt : oldFields.lastReviewedAt,
+      };
+
       newAttrs = newAttrs.replace(/\s*data-annotation-tags="[^"]*"/g, "");
       newAttrs = newAttrs.replace(/\s*data-annotation-archived="[^"]*"/g, "");
       newAttrs = newAttrs.replace(/\s*data-annotation-review-count="[^"]*"/g, "");
       newAttrs = newAttrs.replace(/\s*data-annotation-last-reviewed="[^"]*"/g, "");
 
-      const cardAttr = buildCardAttrs({
-        tags: updates.tags,
-        archived: updates.archived,
-        reviewCount: updates.reviewCount,
-        lastReviewedAt: updates.lastReviewedAt,
-      });
+      const cardAttr = buildCardAttrs(merged);
       newAttrs += cardAttr;
     }
 
