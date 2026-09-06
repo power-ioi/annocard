@@ -935,7 +935,8 @@ this.closeCardSetOverlay();
         if (card.annotation.archived) tile.addClass("is-remembered");
         const accent = COLOR_ACCENT_VARS[card.annotation.color];
         if (accent) tile.setCssStyles({ borderLeft: "3px solid " + accent });
-        const excerpt = card.annotation.note || card.annotation.text;
+        // 卡片固定显示标注内容(高亮的原文),批注在小弹窗中查看
+        const excerpt = card.annotation.text;
         tile.createDiv({
           cls: "annocard-review-tile-text",
           text: excerpt.length > 140 ? excerpt.slice(0, 140) + "…" : excerpt,

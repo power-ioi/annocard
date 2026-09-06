@@ -6019,7 +6019,7 @@ var AnnotationSidebarView = class extends import_obsidian16.ItemView {
         if (card.annotation.archived) tile.addClass("is-remembered");
         const accent = COLOR_ACCENT_VARS[card.annotation.color];
         if (accent) tile.setCssStyles({ borderLeft: "3px solid " + accent });
-        const excerpt = card.annotation.note || card.annotation.text;
+        const excerpt = card.annotation.text;
         tile.createDiv({
           cls: "annocard-review-tile-text",
           text: excerpt.length > 140 ? excerpt.slice(0, 140) + "\u2026" : excerpt
