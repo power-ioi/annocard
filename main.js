@@ -2084,6 +2084,7 @@ var zhCN = {
   cardReviewRemember: "\u8BB0\u4F4F",
   cardReviewForget: "\u5FD8\u8BB0",
   cardReviewEmpty: "\u6CA1\u6709\u53EF\u590D\u4E60\u7684\u6807\u6CE8",
+  reviewOverviewAll: "\u590D\u4E60\u5168\u90E8",
   cardReviewStat: (n, r, f) => `\u5171 ${n} \u5F20,\u8BB0\u4F4F ${r} \u5F20,\u5FD8\u8BB0 ${f} \u5F20`,
   cardReviewProgress: (cur, total) => `${cur} / ${total}`,
   cardTagAddPlaceholder: "\u8F93\u5165\u6807\u7B7E...",
@@ -2305,6 +2306,7 @@ var en = {
   cardReviewRemember: "Remember",
   cardReviewForget: "Forgot",
   cardReviewEmpty: "No annotations to review",
+  reviewOverviewAll: "Review all",
   cardReviewStat: (n, r, f) => `Total ${n}, remembered ${r}, forgot ${f}`,
   cardReviewProgress: (cur, total) => `${cur} / ${total}`,
   cardTagAddPlaceholder: "Enter tag...",
@@ -5269,6 +5271,8 @@ var AnnotationSidebarView = class extends import_obsidian16.ItemView {
     // AnnoCard 工具栏按钮
     this.batchBtn = null;
     this.reviewBtn = null;
+    // 复习总览(HiLighter 风格按文件分组网格)是否激活
+    this.reviewOverviewActive = false;
     this.expandBtn = null;
     this.collapseBtn = null;
     this.batchBar = null;
@@ -5440,7 +5444,7 @@ var AnnotationSidebarView = class extends import_obsidian16.ItemView {
       attr: { "aria-label": t().cardReviewStart }
     });
     (0, import_obsidian16.setIcon)(this.reviewBtn, "graduation-cap");
-    this.reviewBtn.addEventListener("click", () => this.startReview());
+    this.reviewBtn.addEventListener("click", () => this.toggleReviewOverview());
   }
   // 切换卡片内容折叠状态并同步按钮态
   setCardsCollapsed(collapsed) {
@@ -5806,23 +5810,87 @@ var AnnotationSidebarView = class extends import_obsidian16.ItemView {
   }
   // ========== 复习模式 ==========
   // 启动复习模式:取当前筛选下的未归档卡片
-  // 公开:供命令"开始复习"调用
-  startReview() {
+  // 公开:供命令"开始复习"调用;传入 cards 时仅复习该子集(复习总览点击卡片/文件组)
+  startReview(cards) {
+    var _a;
     if (this.reviewMode) return;
-    const reviewCards = this.cachedSortedCards;
+    const reviewCards = cards != null ? cards : this.cachedSortedCards;
     if (reviewCards.length === 0) {
       new import_obsidian16.Notice(t().cardReviewEmpty);
       return;
     }
+    this.reviewOverviewActive = false;
+    (_a = this.reviewBtn) == null ? void 0 : _a.removeClass("is-active");
     this.reviewMode = new ReviewMode(this.fileManager, reviewCards, {
       batchSize: this.plugin.settings.reviewBatchSize,
       onExit: () => {
+        var _a2;
         this.reviewMode = null;
+        this.reviewOverviewActive = false;
+        (_a2 = this.reviewBtn) == null ? void 0 : _a2.removeClass("is-active");
         this.allAnnotationsCache = null;
         void this.refresh();
       }
     });
     this.reviewMode.start();
+  }
+  // 切换复习总览(HiLighter 风格:按文件分组 + 数量角标 + 卡片网格)
+  toggleReviewOverview() {
+    var _a;
+    if (this.reviewMode) return;
+    this.reviewOverviewActive = !this.reviewOverviewActive;
+    (_a = this.reviewBtn) == null ? void 0 : _a.toggleClass("is-active", this.reviewOverviewActive);
+    void this.renderCards({ keepReviewOverview: this.reviewOverviewActive });
+  }
+  // 渲染复习总览:按文件分组,点击卡片复习该文件组,"复习全部"复习当前筛选全集
+  renderReviewOverview() {
+    var _a, _b;
+    if (!this.cardListEl) return;
+    const loc = t();
+    this.cardListEl.empty();
+    const total = this.cachedSortedCards.length;
+    if (total === 0) {
+      this.renderEmpty(this.cardListEl, loc.cardReviewEmpty);
+      return;
+    }
+    const topRow = this.cardListEl.createDiv({ cls: "annocard-review-overview-top" });
+    const allBtn = topRow.createEl("button", {
+      cls: "annocard-review-all-btn",
+      text: `${loc.reviewOverviewAll} (${total})`
+    });
+    allBtn.addEventListener("click", () => this.startReview());
+    const groups = /* @__PURE__ */ new Map();
+    for (const card of this.cachedSortedCards) {
+      const arr = groups.get(card.notePath);
+      if (arr) arr.push(card);
+      else groups.set(card.notePath, [card]);
+    }
+    for (const [notePath, cards] of groups) {
+      const fileName = (_b = (_a = notePath.split("/").pop()) == null ? void 0 : _a.replace(/\.md$/i, "")) != null ? _b : notePath;
+      const group = this.cardListEl.createDiv({ cls: "annocard-review-group" });
+      const header = group.createDiv({ cls: "annocard-review-group-header" });
+      const caret = header.createSpan({ cls: "annocard-review-group-caret", text: "\u25BE" });
+      header.createSpan({ cls: "annocard-review-group-name", text: fileName });
+      header.createSpan({ cls: "annocard-review-group-count", text: String(cards.length) });
+      const grid = group.createDiv({ cls: "annocard-review-grid" });
+      header.addEventListener("click", () => {
+        const collapsed = !grid.hasClass("is-collapsed");
+        grid.toggleClass("is-collapsed", collapsed);
+        caret.toggleClass("is-collapsed", collapsed);
+      });
+      for (const card of cards) {
+        const tile = grid.createDiv({ cls: "annocard-review-tile" });
+        if (card.annotation.archived) tile.addClass("is-remembered");
+        const accent = COLOR_ACCENT_VARS[card.annotation.color];
+        if (accent) tile.setCssStyles({ borderLeft: `3px solid ${accent}` });
+        const excerpt = card.annotation.note || card.annotation.text;
+        tile.createDiv({
+          cls: "annocard-review-tile-text",
+          text: excerpt.length > 140 ? excerpt.slice(0, 140) + "\u2026" : excerpt
+        });
+        tile.addEventListener("click", () => this.startReview(cards));
+      }
+    }
   }
   // ========== 数据加载 ==========
   async refresh() {
@@ -5834,6 +5902,11 @@ var AnnotationSidebarView = class extends import_obsidian16.ItemView {
   }
   async renderCards(opts = {}) {
     if (!this.cardListEl) return;
+    if (!opts.keepReviewOverview) this.reviewOverviewActive = false;
+    if (this.reviewOverviewActive) {
+      this.renderReviewOverview();
+      return;
+    }
     const savedScroll = opts.preserveScroll ? this.cardListEl.scrollTop : 0;
     if (this.colorFilter !== "all" && !getActiveColors(this.plugin.settings).includes(this.colorFilter)) {
       this.colorFilter = "all";

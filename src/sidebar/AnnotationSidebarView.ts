@@ -1,6 +1,6 @@
 import { ItemView, MarkdownView, Notice, normalizePath, setIcon, TFile, WorkspaceLeaf } from "obsidian";
 import type { AnnotationColor, ParsedAnnotation } from "../types";
-import { COLOR_CLASSES, getActiveColors } from "../constants";
+import { COLOR_CLASSES, COLOR_ACCENT_VARS, getActiveColors } from "../constants";
 import { annotationPathToNotePath, getViewFilePath } from "../utils/helpers";
 import { AnnotationFileManager } from "../annotationFile/AnnotationFileManager";
 import { editAnnotationInEditor } from "../utils/annotationEditorHelper";
@@ -56,6 +56,8 @@ export class AnnotationSidebarView extends ItemView {
   // AnnoCard 工具栏按钮
   private batchBtn: HTMLElement | null = null;
   private reviewBtn: HTMLElement | null = null;
+  // 复习总览(HiLighter 风格按文件分组网格)是否激活
+  private reviewOverviewActive = false;
   private expandBtn: HTMLElement | null = null;
   private collapseBtn: HTMLElement | null = null;
   private batchBar: HTMLElement | null = null;
@@ -278,7 +280,7 @@ export class AnnotationSidebarView extends ItemView {
       attr: { "aria-label": t().cardReviewStart },
     });
     setIcon(this.reviewBtn, "graduation-cap");
-    this.reviewBtn.addEventListener("click", () => this.startReview());
+    this.reviewBtn.addEventListener("click", () => this.toggleReviewOverview());
   }
 
   // 切换卡片内容折叠状态并同步按钮态
@@ -715,28 +717,100 @@ export class AnnotationSidebarView extends ItemView {
   // ========== 复习模式 ==========
 
   // 启动复习模式:取当前筛选下的未归档卡片
-  // 公开:供命令"开始复习"调用
-  startReview(): void {
+  // 公开:供命令"开始复习"调用;传入 cards 时仅复习该子集(复习总览点击卡片/文件组)
+  startReview(cards?: AnnotationCardData[]): void {
     // 已打开则不重复启动
     if (this.reviewMode) return;
 
     // 复习包含全部卡片(含已标记"记住"的),复习界面内可用右上筛选只看记住/忘记
-    const reviewCards = this.cachedSortedCards;
+    const reviewCards = cards ?? this.cachedSortedCards;
     if (reviewCards.length === 0) {
       new Notice(t().cardReviewEmpty);
       return;
     }
 
+    // 进入复习弹层前退出总览
+    this.reviewOverviewActive = false;
+    this.reviewBtn?.removeClass("is-active");
+
     this.reviewMode = new ReviewMode(this.fileManager, reviewCards, {
       batchSize: this.plugin.settings.reviewBatchSize,
       onExit: () => {
         this.reviewMode = null;
+        this.reviewOverviewActive = false;
+        this.reviewBtn?.removeClass("is-active");
         // 复习可能修改了 archived,重置 allAnnotationsCache 以重新加载
         this.allAnnotationsCache = null;
         void this.refresh();
       },
     });
     this.reviewMode.start();
+  }
+
+  // 切换复习总览(HiLighter 风格:按文件分组 + 数量角标 + 卡片网格)
+  private toggleReviewOverview(): void {
+    if (this.reviewMode) return;
+    this.reviewOverviewActive = !this.reviewOverviewActive;
+    this.reviewBtn?.toggleClass("is-active", this.reviewOverviewActive);
+    void this.renderCards({ keepReviewOverview: this.reviewOverviewActive });
+  }
+
+  // 渲染复习总览:按文件分组,点击卡片复习该文件组,"复习全部"复习当前筛选全集
+  private renderReviewOverview(): void {
+    if (!this.cardListEl) return;
+    const loc = t();
+    this.cardListEl.empty();
+
+    const total = this.cachedSortedCards.length;
+    if (total === 0) {
+      this.renderEmpty(this.cardListEl, loc.cardReviewEmpty);
+      return;
+    }
+
+    // 顶部"复习全部"
+    const topRow = this.cardListEl.createDiv({ cls: "annocard-review-overview-top" });
+    const allBtn = topRow.createEl("button", {
+      cls: "annocard-review-all-btn",
+      text: `${loc.reviewOverviewAll} (${total})`,
+    });
+    allBtn.addEventListener("click", () => this.startReview());
+
+    // 按文件分组,保持当前排序中首次出现的顺序
+    const groups = new Map<string, AnnotationCardData[]>();
+    for (const card of this.cachedSortedCards) {
+      const arr = groups.get(card.notePath);
+      if (arr) arr.push(card);
+      else groups.set(card.notePath, [card]);
+    }
+
+    for (const [notePath, cards] of groups) {
+      const fileName = notePath.split("/").pop()?.replace(/\.md$/i, "") ?? notePath;
+      const group = this.cardListEl.createDiv({ cls: "annocard-review-group" });
+      const header = group.createDiv({ cls: "annocard-review-group-header" });
+      const caret = header.createSpan({ cls: "annocard-review-group-caret", text: "▾" });
+      header.createSpan({ cls: "annocard-review-group-name", text: fileName });
+      header.createSpan({ cls: "annocard-review-group-count", text: String(cards.length) });
+      const grid = group.createDiv({ cls: "annocard-review-grid" });
+      header.addEventListener("click", () => {
+        const collapsed = !grid.hasClass("is-collapsed");
+        grid.toggleClass("is-collapsed", collapsed);
+        caret.toggleClass("is-collapsed", collapsed);
+      });
+
+      for (const card of cards) {
+        const tile = grid.createDiv({ cls: "annocard-review-tile" });
+        // 已标记"记住"(archived)的卡片绿色调,与复习筛选语义一致
+        if (card.annotation.archived) tile.addClass("is-remembered");
+        const accent = COLOR_ACCENT_VARS[card.annotation.color];
+        if (accent) tile.setCssStyles({ borderLeft: `3px solid ${accent}` });
+        const excerpt = card.annotation.note || card.annotation.text;
+        tile.createDiv({
+          cls: "annocard-review-tile-text",
+          text: excerpt.length > 140 ? excerpt.slice(0, 140) + "…" : excerpt,
+        });
+        tile.addEventListener("click", () => this.startReview(cards));
+      }
+    }
   }
 
   // ========== 数据加载 ==========
@@ -750,8 +824,15 @@ export class AnnotationSidebarView extends ItemView {
     this.lastRefreshedNotePath = activeFile?.path ?? null;
   }
 
-  private async renderCards(opts: { preserveScroll?: boolean } = {}): Promise<void> {
+  private async renderCards(opts: { preserveScroll?: boolean; keepReviewOverview?: boolean } = {}): Promise<void> {
     if (!this.cardListEl) return;
+    // 非总览触发路径(筛选/搜索/排序/数据刷新)一律退出复习总览
+    if (!opts.keepReviewOverview) this.reviewOverviewActive = false;
+    // 复习总览激活:渲染分组网格而非普通卡片流
+    if (this.reviewOverviewActive) {
+      this.renderReviewOverview();
+      return;
+    }
     // 在 empty() 前捕获滚动位置(仅 preserveScroll 时)
     const savedScroll = opts.preserveScroll ? this.cardListEl.scrollTop : 0;
 

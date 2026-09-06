@@ -2957,3 +2957,97 @@
   background-color: rgba(30, 30, 34, 0.92);
   color: #ffffff;
 }
+
+/* ========== 复习总览（HiLighter 风格：按文件分组 + 数量角标 + 卡片网格） ========== */
+.annocard-review-overview-top {
+  display: flex;
+  justify-content: flex-end;
+  margin-bottom: 10px;
+}
+.annocard-review-all-btn {
+  padding: 5px 14px;
+  border-radius: 999px;
+  border: 1px solid var(--interactive-accent);
+  background: var(--interactive-accent);
+  color: var(--text-on-accent);
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: box-shadow 0.15s ease, transform 0.15s ease;
+}
+.annocard-review-all-btn:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+}
+.annocard-review-group {
+  margin-bottom: 16px;
+}
+.annocard-review-group-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 4px;
+  cursor: pointer;
+  user-select: none;
+  -webkit-user-select: none;
+}
+.annocard-review-group-caret {
+  font-size: 10px;
+  color: var(--text-muted);
+  transition: transform 0.15s ease;
+}
+.annocard-review-group-caret.is-collapsed {
+  transform: rotate(-90deg);
+}
+.annocard-review-group-name {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--text-normal);
+}
+.annocard-review-group-count {
+  min-width: 20px;
+  padding: 1px 7px;
+  border-radius: 999px;
+  background: var(--background-modifier-hover);
+  color: var(--text-muted);
+  font-size: 11px;
+  text-align: center;
+}
+.annocard-review-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+  gap: 12px;
+  margin-top: 6px;
+}
+.annocard-review-grid.is-collapsed {
+  display: none;
+}
+.annocard-review-tile {
+  min-height: 110px;
+  max-height: 190px;
+  padding: 12px;
+  border-radius: 12px;
+  background: rgba(40, 44, 52, 0.55);
+  border: 1px solid var(--background-modifier-border);
+  cursor: pointer;
+  overflow: hidden;
+  transition: transform 0.15s ease, box-shadow 0.15s ease, border-color 0.15s ease;
+}
+.annocard-review-tile:hover {
+  transform: translateY(-2px);
+  border-color: var(--interactive-accent);
+  box-shadow: 0 6px 16px rgba(0, 0, 0, 0.35);
+}
+.annocard-review-tile.is-remembered {
+  background: rgba(64, 96, 64, 0.38);
+}
+.annocard-review-tile-text {
+  display: -webkit-box;
+  -webkit-line-clamp: 6;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+  font-size: 13px;
+  line-height: 1.55;
+  color: var(--text-normal);
+  word-break: break-word;
+}
