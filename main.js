@@ -6051,7 +6051,7 @@ var AnnotationSidebarView = class extends import_obsidian16.ItemView {
     this.cardSetPopupCards = null;
   }
   renderCardSetPopup() {
-    var _a;
+    var _a, _b;
     const backdrop = this.cardSetPopupEl;
     const cards = this.cardSetPopupCards;
     if (!backdrop || !cards) return;
@@ -6208,6 +6208,11 @@ var AnnotationSidebarView = class extends import_obsidian16.ItemView {
       noteBlock.createDiv({ cls: "annocard-cs-note-text", text: card.annotation.note });
     } else {
       noteBlock.createDiv({ cls: "annocard-cs-note-text is-empty", text: loc.cardSetNoNote });
+    }
+    const popTags = (_b = card.annotation.tags) != null ? _b : [];
+    if (popTags.length > 0) {
+      const tagRow = popup.createDiv({ cls: "annocard-cs-pop-tags" });
+      for (const tg of popTags) tagRow.createSpan({ cls: "annocard-cs-tag-chip", text: tg });
     }
     const actions = popup.createDiv({ cls: "annocard-cs-actions" });
     const prevBtn = actions.createEl("button", { cls: "annotation-btn annotation-btn-secondary", text: loc.cardReviewPrev });

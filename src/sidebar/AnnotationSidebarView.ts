@@ -1144,6 +1144,13 @@ this.closeCardSetOverlay();
       noteBlock.createDiv({ cls: "annocard-cs-note-text is-empty", text: loc.cardSetNoNote });
     }
 
+    // 标签(查看模式展示)
+    const popTags = card.annotation.tags ?? [];
+    if (popTags.length > 0) {
+      const tagRow = popup.createDiv({ cls: "annocard-cs-pop-tags" });
+      for (const tg of popTags) tagRow.createSpan({ cls: "annocard-cs-tag-chip", text: tg });
+    }
+
     // 底部操作:上一页 / 记住 / 忘记 / 下一页
     const actions = popup.createDiv({ cls: "annocard-cs-actions" });
     const prevBtn = actions.createEl("button", { cls: "annotation-btn annotation-btn-secondary", text: loc.cardReviewPrev });

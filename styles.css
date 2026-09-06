@@ -3277,15 +3277,39 @@
   font-size: 12px;
   padding: 5px 4px;
 }
+.annocard-cs-remember {
+  color: #4c8c4c;
+  border-color: rgba(76, 140, 76, 0.45);
+  background: rgba(76, 140, 76, 0.1);
+}
+.annocard-cs-remember:hover {
+  background: rgba(76, 140, 76, 0.2);
+}
+.annocard-cs-forget {
+  color: #c05050;
+  border-color: rgba(192, 80, 80, 0.45);
+  background: rgba(192, 80, 80, 0.1);
+}
+.annocard-cs-forget:hover {
+  background: rgba(192, 80, 80, 0.2);
+}
 .annocard-cs-remember.is-marked {
   background: rgba(76, 140, 76, 0.85);
   color: #fff;
   border-color: transparent;
+  box-shadow: 0 2px 10px rgba(76, 140, 76, 0.35);
 }
 .annocard-cs-forget.is-marked {
   background: rgba(192, 80, 80, 0.85);
   color: #fff;
   border-color: transparent;
+  box-shadow: 0 2px 10px rgba(192, 80, 80, 0.35);
+}
+.annocard-cs-pop-tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-bottom: 12px;
 }
 /* 标签编辑弹窗 */
 .annocard-tag-edit-row {
