@@ -3051,3 +3051,253 @@
   color: var(--text-normal);
   word-break: break-word;
 }
+
+/* ========== 卡片集工具栏（视图/顺序/颜色/记住/忘记） ========== */
+.annocard-cs-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 4px 10px;
+  border-bottom: 1px solid var(--background-modifier-border);
+  margin-bottom: 12px;
+}
+.annocard-cs-viewtoggle {
+  display: flex;
+  gap: 4px;
+}
+.annocard-cs-viewbtn {
+  width: 26px;
+  height: 24px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 6px;
+  border: 1px solid transparent;
+  background: transparent;
+  color: var(--text-muted);
+  cursor: pointer;
+  padding: 0;
+}
+.annocard-cs-viewbtn:hover {
+  background: var(--background-modifier-hover);
+  color: var(--text-normal);
+}
+.annocard-cs-viewbtn.is-active {
+  border-color: var(--interactive-accent);
+  color: var(--interactive-accent);
+  background: var(--background-modifier-hover);
+}
+.annocard-cs-order {
+  font-size: 12px;
+  padding: 3px 6px;
+  border-radius: 6px;
+  background: var(--background-secondary);
+  color: var(--text-normal);
+  border: 1px solid var(--background-modifier-border);
+}
+.annocard-cs-colors {
+  display: flex;
+  gap: 3px;
+  align-items: center;
+}
+.annocard-cs-dot {
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  border: 1px solid var(--background-modifier-border-hover);
+  cursor: pointer;
+  padding: 0;
+}
+.annocard-cs-dot.is-active {
+  outline: 2px solid var(--interactive-accent);
+  outline-offset: 1px;
+}
+.annocard-cs-dot-all {
+  width: auto;
+  height: 20px;
+  padding: 0 8px;
+  border-radius: 999px;
+  background: var(--background-modifier-hover);
+  color: var(--text-muted);
+  font-size: 10px;
+  display: flex;
+  align-items: center;
+}
+.annocard-cs-states {
+  display: flex;
+  gap: 6px;
+  margin-left: auto;
+}
+.annocard-cs-chip {
+  padding: 3px 12px;
+  border-radius: 999px;
+  font-size: 12px;
+  cursor: pointer;
+  border: 1px solid var(--background-modifier-border);
+  background: var(--background-secondary);
+  color: var(--text-muted);
+  transition: all 0.15s ease;
+}
+.annocard-cs-chip-remember.is-active {
+  background: rgba(76, 140, 76, 0.9);
+  border-color: transparent;
+  color: #fff;
+  box-shadow: 0 2px 8px rgba(76, 140, 76, 0.35);
+}
+.annocard-cs-chip-forget.is-active {
+  background: rgba(192, 80, 80, 0.9);
+  border-color: transparent;
+  color: #fff;
+  box-shadow: 0 2px 8px rgba(192, 80, 80, 0.35);
+}
+/* 条状视图 */
+.annocard-review-grid.is-bar {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.annocard-review-grid.is-bar .annocard-review-tile {
+  min-height: 0;
+  max-height: none;
+  padding: 10px 14px;
+}
+.annocard-review-grid.is-bar .annocard-review-tile-text {
+  -webkit-line-clamp: 2;
+}
+/* ========== 卡片集小弹窗 ========== */
+.annocard-cs-backdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.45);
+  z-index: 1000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.annocard-cs-popup {
+  position: relative;
+  width: 340px;
+  max-width: 92vw;
+  max-height: 80vh;
+  overflow: auto;
+  background: var(--background-primary);
+  border: 1px solid var(--background-modifier-border);
+  border-radius: 14px;
+  padding: 14px 14px 12px;
+  box-shadow: 0 12px 40px rgba(0, 0, 0, 0.4);
+}
+.annocard-cs-edge {
+  position: absolute;
+  top: 40px;
+  right: 8px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.annocard-cs-edgebtn {
+  width: 26px;
+  height: 26px;
+  border-radius: 6px;
+  border: 1px solid var(--background-modifier-border);
+  background: var(--background-secondary);
+  color: var(--text-muted);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+}
+.annocard-cs-edgebtn:hover {
+  color: var(--text-normal);
+  border-color: var(--interactive-accent);
+}
+.annocard-cs-edgebtn-danger:hover {
+  color: var(--text-error);
+  border-color: var(--text-error);
+}
+.annocard-cs-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 8px;
+}
+.annocard-cs-index {
+  font-size: 12px;
+  color: var(--text-muted);
+  font-variant-numeric: tabular-nums;
+}
+.annocard-cs-close {
+  border: none;
+  background: transparent;
+  color: var(--text-muted);
+  font-size: 16px;
+  cursor: pointer;
+  padding: 0 4px;
+}
+.annocard-cs-close:hover {
+  color: var(--text-normal);
+}
+.annocard-cs-annotation {
+  padding: 10px 40px 10px 12px;
+  border-radius: 8px;
+  background: var(--background-secondary);
+  border-left: 3px solid var(--interactive-accent);
+  font-size: 13px;
+  line-height: 1.55;
+  margin-bottom: 10px;
+  word-break: break-word;
+  display: -webkit-box;
+  -webkit-line-clamp: 6;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+.annocard-cs-note {
+  margin-bottom: 12px;
+  padding-right: 40px;
+}
+.annocard-cs-note-text {
+  font-size: 13px;
+  line-height: 1.55;
+  color: var(--text-normal);
+  word-break: break-word;
+  display: -webkit-box;
+  -webkit-line-clamp: 5;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+.annocard-cs-note-text.is-empty {
+  color: var(--text-faint);
+  font-style: italic;
+}
+.annocard-cs-actions {
+  display: flex;
+  gap: 8px;
+}
+.annocard-cs-actions .annotation-btn {
+  flex: 1;
+  font-size: 12px;
+  padding: 5px 4px;
+}
+.annocard-cs-remember.is-marked {
+  background: rgba(76, 140, 76, 0.85);
+  color: #fff;
+  border-color: transparent;
+}
+.annocard-cs-forget.is-marked {
+  background: rgba(192, 80, 80, 0.85);
+  color: #fff;
+  border-color: transparent;
+}
+/* 标签编辑弹窗 */
+.annocard-tag-edit-row {
+  margin-bottom: 12px;
+}
+.annocard-tag-edit-input {
+  width: 100%;
+}
+.annocard-tag-edit-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+}

@@ -1,6 +1,8 @@
 import { ItemView, MarkdownView, Notice, normalizePath, setIcon, TFile, WorkspaceLeaf } from "obsidian";
 import type { AnnotationColor, ParsedAnnotation } from "../types";
 import { COLOR_CLASSES, COLOR_ACCENT_VARS, getActiveColors } from "../constants";
+import { EditNoteModal } from "../ui/EditNoteModal";
+import { TagEditModal } from "../ui/TagEditModal";
 import { annotationPathToNotePath, getViewFilePath } from "../utils/helpers";
 import { AnnotationFileManager } from "../annotationFile/AnnotationFileManager";
 import { editAnnotationInEditor } from "../utils/annotationEditorHelper";
@@ -56,8 +58,17 @@ export class AnnotationSidebarView extends ItemView {
   // AnnoCard 工具栏按钮
   private batchBtn: HTMLElement | null = null;
   private reviewBtn: HTMLElement | null = null;
-  // 复习总览(HiLighter 风格按文件分组网格)是否激活
+  // 卡片集(HiLighter 风格按文件分组网格)是否激活
   private reviewOverviewActive = false;
+  // 卡片集视图/筛选与小弹窗状态
+  private cardSetView: "square" | "bar" = "square";
+  private cardSetOrderAsc = true;
+  private cardSetColorFilter: AnnotationColor | "all" = "all";
+  private cardSetStateFilter: "all" | "remember" | "forget" = "all";
+  private cardSetPopupEl: HTMLElement | null = null;
+  private cardSetPopupCards: AnnotationCardData[] | null = null;
+  private cardSetCursor = 0;
+  private cardSetKeyHandler: ((e: KeyboardEvent) => void) | null = null;
   private expandBtn: HTMLElement | null = null;
   private collapseBtn: HTMLElement | null = null;
   private batchBar: HTMLElement | null = null;
@@ -172,6 +183,7 @@ export class AnnotationSidebarView extends ItemView {
     }
     // AnnoCard:关闭时退出复习模式(若打开)
     if (this.reviewMode) {
+    this.closeCardSetPopup();
       this.reviewMode.exit();
       this.reviewMode = null;
     }
@@ -277,9 +289,9 @@ export class AnnotationSidebarView extends ItemView {
     // 复习模式入口
     this.reviewBtn = actions.createEl("button", {
       cls: "hl-btn-all annocard-icon-toolbar-btn annocard-toolbar-review",
-      attr: { "aria-label": t().cardReviewStart },
+      attr: { "aria-label": t().cardSetTitle },
     });
-    setIcon(this.reviewBtn, "graduation-cap");
+    setIcon(this.reviewBtn, "layout-grid");
     this.reviewBtn.addEventListener("click", () => this.toggleReviewOverview());
   }
 
@@ -747,72 +759,321 @@ export class AnnotationSidebarView extends ItemView {
     this.reviewMode.start();
   }
 
-  // 切换复习总览(HiLighter 风格:按文件分组 + 数量角标 + 卡片网格)
+  // 切换卡片集(HiLighter 风格:按文件分组网格,支持条状/方形视图与筛选)
   private toggleReviewOverview(): void {
     if (this.reviewMode) return;
+    if (this.cardSetPopupEl) this.closeCardSetPopup();
     this.reviewOverviewActive = !this.reviewOverviewActive;
     this.reviewBtn?.toggleClass("is-active", this.reviewOverviewActive);
     void this.renderCards({ keepReviewOverview: this.reviewOverviewActive });
   }
 
-  // 渲染复习总览:按文件分组,点击卡片复习该文件组,"复习全部"复习当前筛选全集
+  // 卡片集当前筛选下的有序卡片(网格与小弹窗共用同一顺序)
+  private getCardSetCards(): AnnotationCardData[] {
+    let cards = [...this.cachedSortedCards];
+    if (!this.cardSetOrderAsc) cards.reverse();
+    if (this.cardSetColorFilter !== "all") {
+      cards = cards.filter((c) => c.annotation.color === this.cardSetColorFilter);
+    }
+    if (this.cardSetStateFilter === "remember") cards = cards.filter((c) => c.annotation.archived);
+    else if (this.cardSetStateFilter === "forget") cards = cards.filter((c) => !c.annotation.archived);
+    return cards;
+  }
+
+  // 渲染卡片集:顶部工具栏(视图/顺序/颜色/记住/忘记) + 按文件分组的卡片网格
   private renderReviewOverview(): void {
     if (!this.cardListEl) return;
     const loc = t();
     this.cardListEl.empty();
 
-    const total = this.cachedSortedCards.length;
-    if (total === 0) {
+    const cards = this.getCardSetCards();
+    if (cards.length === 0) {
       this.renderEmpty(this.cardListEl, loc.cardReviewEmpty);
       return;
     }
 
-    // 顶部"复习全部"
-    const topRow = this.cardListEl.createDiv({ cls: "annocard-review-overview-top" });
-    const allBtn = topRow.createEl("button", {
-      cls: "annocard-review-all-btn",
-      text: `${loc.reviewOverviewAll} (${total})`,
-    });
-    allBtn.addEventListener("click", () => this.startReview());
+    // 顶部工具栏
+    const bar = this.cardListEl.createDiv({ cls: "annocard-cs-toolbar" });
 
-    // 按文件分组,保持当前排序中首次出现的顺序
+    // 视图切换:方形 / 条状
+    const viewWrap = bar.createDiv({ cls: "annocard-cs-viewtoggle" });
+    const squareBtn = viewWrap.createEl("button", { cls: "annocard-cs-viewbtn", attr: { "aria-label": loc.cardSetViewSquare } });
+    setIcon(squareBtn, "layout-grid");
+    const barBtn = viewWrap.createEl("button", { cls: "annocard-cs-viewbtn", attr: { "aria-label": loc.cardSetViewBar } });
+    setIcon(barBtn, "rows-3");
+    const syncViewBtns = () => {
+      squareBtn.toggleClass("is-active", this.cardSetView === "square");
+      barBtn.toggleClass("is-active", this.cardSetView === "bar");
+    };
+    syncViewBtns();
+    squareBtn.addEventListener("click", () => {
+      this.cardSetView = "square";
+      syncViewBtns();
+      void this.renderCards({ keepReviewOverview: true });
+    });
+    barBtn.addEventListener("click", () => {
+      this.cardSetView = "bar";
+      syncViewBtns();
+      void this.renderCards({ keepReviewOverview: true });
+    });
+
+    // 顺序:正序 / 倒序
+    const orderSel = bar.createEl("select", { cls: "annocard-cs-order" });
+    orderSel.createEl("option", { value: "asc", text: loc.cardSetOrderAsc });
+    orderSel.createEl("option", { value: "desc", text: loc.cardSetOrderDesc });
+    orderSel.value = this.cardSetOrderAsc ? "asc" : "desc";
+    orderSel.addEventListener("change", () => {
+      this.cardSetOrderAsc = orderSel.value === "asc";
+      void this.renderCards({ keepReviewOverview: true });
+    });
+
+    // 颜色筛选圆点(全部 + 启用的颜色)
+    const colorWrap = bar.createDiv({ cls: "annocard-cs-colors" });
+    const mkDot = (color: AnnotationColor | "all") => {
+      const dot = colorWrap.createEl("button");
+      if (color === "all") {
+        dot.className = "annocard-cs-dot annocard-cs-dot-all";
+        dot.setText(loc.all);
+      } else {
+        dot.className = "annocard-cs-dot annotation-color-dot " + COLOR_CLASSES[color];
+      }
+      dot.toggleClass("is-active", this.cardSetColorFilter === color);
+      dot.addEventListener("click", () => {
+        this.cardSetColorFilter = color;
+        void this.renderCards({ keepReviewOverview: true });
+      });
+    };
+    mkDot("all");
+    for (const c of getActiveColors(this.plugin.settings)) mkDot(c);
+
+    // 记住 / 忘记 筛选胶囊
+    const stateWrap = bar.createDiv({ cls: "annocard-cs-states" });
+    const mkState = (mode: "remember" | "forget") => {
+      const chip = stateWrap.createEl("button", {
+        cls: "annocard-cs-chip annocard-cs-chip-" + mode,
+        text: mode === "remember" ? loc.cardReviewRemember : loc.cardReviewForget,
+      });
+      chip.toggleClass("is-active", this.cardSetStateFilter === mode);
+      chip.addEventListener("click", () => {
+        this.cardSetStateFilter = this.cardSetStateFilter === mode ? "all" : mode;
+        void this.renderCards({ keepReviewOverview: true });
+      });
+    };
+    mkState("remember");
+    mkState("forget");
+
+    // 按文件分组,保持当前排序首次出现的顺序
     const groups = new Map<string, AnnotationCardData[]>();
-    for (const card of this.cachedSortedCards) {
+    for (const card of cards) {
       const arr = groups.get(card.notePath);
       if (arr) arr.push(card);
       else groups.set(card.notePath, [card]);
     }
 
-    for (const [notePath, cards] of groups) {
+    for (const [notePath, groupCards] of groups) {
       const fileName = notePath.split("/").pop()?.replace(/\.md$/i, "") ?? notePath;
       const group = this.cardListEl.createDiv({ cls: "annocard-review-group" });
       const header = group.createDiv({ cls: "annocard-review-group-header" });
       const caret = header.createSpan({ cls: "annocard-review-group-caret", text: "▾" });
       header.createSpan({ cls: "annocard-review-group-name", text: fileName });
-      header.createSpan({ cls: "annocard-review-group-count", text: String(cards.length) });
+      header.createSpan({ cls: "annocard-review-group-count", text: String(groupCards.length) });
       const grid = group.createDiv({ cls: "annocard-review-grid" });
+      grid.addClass(this.cardSetView === "bar" ? "is-bar" : "is-square");
       header.addEventListener("click", () => {
         const collapsed = !grid.hasClass("is-collapsed");
         grid.toggleClass("is-collapsed", collapsed);
         caret.toggleClass("is-collapsed", collapsed);
       });
 
-      for (const card of cards) {
+      for (const card of groupCards) {
         const tile = grid.createDiv({ cls: "annocard-review-tile" });
-        // 已标记"记住"(archived)的卡片绿色调,与复习筛选语义一致
         if (card.annotation.archived) tile.addClass("is-remembered");
         const accent = COLOR_ACCENT_VARS[card.annotation.color];
-        if (accent) tile.setCssStyles({ borderLeft: `3px solid ${accent}` });
+        if (accent) tile.setCssStyles({ borderLeft: "3px solid " + accent });
         const excerpt = card.annotation.note || card.annotation.text;
         tile.createDiv({
           cls: "annocard-review-tile-text",
           text: excerpt.length > 140 ? excerpt.slice(0, 140) + "…" : excerpt,
         });
-        tile.addEventListener("click", () => this.startReview(cards));
+        tile.addEventListener("click", () => {
+          this.cardSetCursor = cards.indexOf(card);
+          this.openCardSetPopup(cards);
+        });
       }
     }
   }
 
+  // ========== 卡片集小弹窗 ==========
+
+  private openCardSetPopup(cards: AnnotationCardData[]): void {
+    this.closeCardSetPopup();
+    if (cards.length === 0) return;
+    this.cardSetPopupCards = cards;
+    const backdrop = activeDocument.body.createDiv({ cls: "annocard-cs-backdrop" });
+    backdrop.createDiv({ cls: "annocard-cs-popup" });
+    backdrop.addEventListener("mousedown", (e) => {
+      if (e.target === backdrop) this.closeCardSetPopup();
+    });
+    this.cardSetKeyHandler = (e: KeyboardEvent) => {
+      if (e.key === "Escape") this.closeCardSetPopup();
+    };
+    activeDocument.addEventListener("keydown", this.cardSetKeyHandler);
+    this.cardSetPopupEl = backdrop;
+    this.renderCardSetPopup();
+  }
+
+  private closeCardSetPopup(): void {
+    if (this.cardSetKeyHandler) {
+      activeDocument.removeEventListener("keydown", this.cardSetKeyHandler);
+      this.cardSetKeyHandler = null;
+    }
+    this.cardSetPopupEl?.remove();
+    this.cardSetPopupEl = null;
+    this.cardSetPopupCards = null;
+  }
+
+  private renderCardSetPopup(): void {
+    const backdrop = this.cardSetPopupEl;
+    const cards = this.cardSetPopupCards;
+    if (!backdrop || !cards) return;
+    const popup = backdrop.querySelector<HTMLElement>(".annocard-cs-popup");
+    if (!popup) return;
+    if (this.cardSetCursor >= cards.length) this.cardSetCursor = cards.length - 1;
+    if (this.cardSetCursor < 0) this.cardSetCursor = 0;
+    const card = cards[this.cardSetCursor];
+    if (!card) { this.closeCardSetPopup(); return; }
+    const loc = t();
+    popup.empty();
+
+    // 右缘操作:编辑批注 / 编辑标签 / 删除
+    const edge = popup.createDiv({ cls: "annocard-cs-edge" });
+    const editNoteBtn = edge.createEl("button", { cls: "annocard-cs-edgebtn", attr: { "aria-label": loc.menuEditNote } });
+    setIcon(editNoteBtn, "pencil");
+    editNoteBtn.addEventListener("click", () => {
+      new EditNoteModal(
+        this.app,
+        () => this.plugin.settings,
+        { note: card.annotation.note, color: card.annotation.color },
+        async (note) => {
+          await this.fileManager.updateAnnotation(card.notePath, card.annotation.id, { note });
+          card.annotation.note = note;
+          new Notice(loc.noticeNoteUpdated);
+          await this.afterCardSetMutation();
+        }
+      ).open();
+    });
+
+    const editTagsBtn = edge.createEl("button", { cls: "annocard-cs-edgebtn", attr: { "aria-label": loc.tagEditTitle } });
+    setIcon(editTagsBtn, "tags");
+    editTagsBtn.addEventListener("click", () => {
+      new TagEditModal(this.app, card.annotation.tags ?? [], async (tags) => {
+        await this.fileManager.updateAnnotation(card.notePath, card.annotation.id, { tags });
+        card.annotation.tags = tags;
+        await this.afterCardSetMutation();
+      }).open();
+    });
+
+    const delBtn = edge.createEl("button", { cls: "annocard-cs-edgebtn annocard-cs-edgebtn-danger", attr: { "aria-label": loc.delete } });
+    setIcon(delBtn, "trash-2");
+    delBtn.addEventListener("click", () => {
+      const msg = (card.annotation.isFullText || card.annotation.positions.length > 1) && card.annotation.positions.length > 1
+        ? loc.confirmDeleteMulti(card.annotation.positions.length)
+        : loc.confirmDelete;
+      new ConfirmOverwriteModal(this.app, msg, async () => {
+        const view = this.app.workspace.getActiveViewOfType(MarkdownView);
+        const deleted = view ? await editAnnotationInEditor(view, this.fileManager, card.notePath, card.annotation.id, "delete") : false;
+        if (!deleted) await this.fileManager.removeAnnotation(card.notePath, card.annotation.id);
+        new Notice(loc.noticeDeleted);
+        cards.splice(this.cardSetCursor, 1);
+        if (cards.length === 0) {
+          this.closeCardSetPopup();
+        } else {
+          if (this.cardSetCursor >= cards.length) this.cardSetCursor = cards.length - 1;
+          this.renderCardSetPopup();
+        }
+        await this.afterCardSetMutation();
+      }, loc.delete).open();
+    });
+
+    // 头部:进度 + 关闭
+    const head = popup.createDiv({ cls: "annocard-cs-head" });
+    head.createSpan({ cls: "annocard-cs-index", text: (this.cardSetCursor + 1) + " / " + cards.length });
+    const closeBtn = head.createEl("button", { cls: "annocard-cs-close", text: "×" });
+    closeBtn.addEventListener("click", () => this.closeCardSetPopup());
+
+    // 标注原文
+    popup.createDiv({ cls: "annocard-cs-annotation", text: '"' + card.annotation.text + '"' });
+
+    // 批注内容
+    const noteBlock = popup.createDiv({ cls: "annocard-cs-note" });
+    if (card.annotation.note) {
+      noteBlock.createDiv({ cls: "annocard-cs-note-text", text: card.annotation.note });
+    } else {
+      noteBlock.createDiv({ cls: "annocard-cs-note-text is-empty", text: loc.cardSetNoNote });
+    }
+
+    // 底部操作:上一页 / 记住 / 忘记 / 下一页
+    const actions = popup.createDiv({ cls: "annocard-cs-actions" });
+    const prevBtn = actions.createEl("button", { cls: "annotation-btn annotation-btn-secondary", text: loc.cardReviewPrev });
+    prevBtn.disabled = this.cardSetCursor === 0;
+    prevBtn.addEventListener("click", () => {
+      if (this.cardSetCursor > 0) { this.cardSetCursor--; this.renderCardSetPopup(); }
+    });
+
+    const rememberBtn = actions.createEl("button", { cls: "annotation-btn annotation-btn-secondary annocard-cs-remember", text: loc.cardReviewRemember });
+    if (card.annotation.archived) rememberBtn.addClass("is-marked");
+    rememberBtn.addEventListener("click", () => void this.markCardSetState(card, true));
+
+    const forgetBtn = actions.createEl("button", { cls: "annotation-btn annotation-btn-secondary annocard-cs-forget", text: loc.cardReviewForget });
+    if (!card.annotation.archived) forgetBtn.addClass("is-marked");
+    forgetBtn.addEventListener("click", () => void this.markCardSetState(card, false));
+
+    const nextBtn = actions.createEl("button", { cls: "annotation-btn annotation-btn-secondary", text: loc.cardReviewNext });
+    nextBtn.disabled = this.cardSetCursor === cards.length - 1;
+    nextBtn.addEventListener("click", () => {
+      if (this.cardSetCursor < cards.length - 1) { this.cardSetCursor++; this.renderCardSetPopup(); }
+    });
+  }
+
+  // 记住/忘记:持久化 archived + lastReviewedAt,同步本地,自动前进到下一张
+  private async markCardSetState(card: AnnotationCardData, remembered: boolean): Promise<void> {
+    const loc = t();
+    try {
+      await this.fileManager.updateAnnotation(card.notePath, card.annotation.id, {
+        archived: remembered,
+        lastReviewedAt: Date.now(),
+      });
+      card.annotation.archived = remembered;
+      if (remembered) new Notice(loc.cardNoticeArchived, 1000);
+    } catch (e) {
+      console.error("卡片集标记保存失败:", e);
+    }
+    const cards = this.cardSetPopupCards;
+    if (cards && this.cardSetCursor < cards.length - 1) {
+      this.cardSetCursor++;
+    }
+    await this.afterCardSetMutation();
+  }
+
+  // 标记/编辑/删除后:重建卡片集网格并刷新小弹窗(按标注 id 重新定位)
+  private async afterCardSetMutation(): Promise<void> {
+    if (!this.reviewOverviewActive && !this.cardSetPopupEl) return;
+    const currentId = this.cardSetPopupCards?.[this.cardSetCursor]?.annotation.id;
+    this.allAnnotationsCache = null;
+    await this.renderCards({ keepReviewOverview: true });
+    if (this.cardSetPopupEl) {
+      const fresh = this.getCardSetCards();
+      const idx = currentId ? fresh.findIndex((c) => c.annotation.id === currentId) : -1;
+      if (idx >= 0) {
+        this.cardSetPopupCards = fresh;
+        this.cardSetCursor = idx;
+      } else if (fresh.length > 0) {
+        this.cardSetPopupCards = fresh;
+        this.cardSetCursor = Math.min(this.cardSetCursor, fresh.length - 1);
+      }
+      this.renderCardSetPopup();
+    }
+  }
   // ========== 数据加载 ==========
 
   async refresh(): Promise<void> {
