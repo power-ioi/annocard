@@ -1,4 +1,4 @@
-﻿import { App, MarkdownView, Notice, Platform, normalizePath, type EditorPosition } from "obsidian";
+import { App, MarkdownView, Notice, Platform, normalizePath, type EditorPosition } from "obsidian";
 import { EditorView } from "@codemirror/view";
 import type { AnnotationColor, BlockSegment, AnnotationPluginSettings } from "../types";
 import { DEFAULT_SETTINGS } from "../types";
@@ -87,7 +87,6 @@ export class SelectionMenu {
 
     // 标题栏
     const header = this.menuEl.createDiv({ cls: "annotation-menu-header" });
-    header.createSpan({ text: loc.menuAddAnnotation, cls: "annotation-menu-title" });
     const closeBtn = header.createEl("button", { cls: "annotation-menu-close", text: loc.close });
     closeBtn.addEventListener("click", () => this.hide(true));
     this.setupMenuDrag(header);
@@ -104,7 +103,6 @@ export class SelectionMenu {
 
     // 颜色选择
     const colorSection = scrollableContent.createDiv({ cls: "annotation-menu-section" });
-    colorSection.createEl("label", { text: loc.menuSelectColor });
     this.colorContainer = colorSection.createDiv({ cls: "annotation-color-buttons" });
 
     const settings = this.getSettings();
@@ -137,7 +135,6 @@ export class SelectionMenu {
     // 批注输入
     const noteSection = scrollableContent.createDiv({ cls: "annotation-menu-section" });
     const noteLabel = noteSection.createDiv({ cls: "annotation-note-label-row" });
-    noteLabel.createEl("label", { text: loc.menuOrAddNote });
     const charCount = noteLabel.createSpan({ cls: "annotation-char-count", text: loc.charCount(0, maxLen) });
 
     this.noteInput = noteSection.createEl("textarea", {

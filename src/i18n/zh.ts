@@ -57,9 +57,6 @@ export const zhCN: LocaleDict = {
   settingsAutoOpenAnnotationDesc: "打开已有标注的笔记时，自动切换到标注模式",
 
   // 选择菜单
-  menuAddAnnotation: "添加标注",
-  menuSelectColor: "选择颜色立即标注",
-  menuOrAddNote: "或添加批注",
   menuFullText: "全文标注",  noticeCopied: "已复制到剪贴板",  noticeAnnotationAdded: "标注已添加",
   noticeAnnotationAndNoteAdded: "标注和批注已添加",
   noticeTextNotFound: "未能在文件中找到选中的文字",

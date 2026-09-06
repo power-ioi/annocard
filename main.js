@@ -2000,9 +2000,6 @@ var zhCN = {
   settingsAutoOpenAnnotation: "\u81EA\u52A8\u8FDB\u5165\u6807\u6CE8\u6A21\u5F0F",
   settingsAutoOpenAnnotationDesc: "\u6253\u5F00\u5DF2\u6709\u6807\u6CE8\u7684\u7B14\u8BB0\u65F6\uFF0C\u81EA\u52A8\u5207\u6362\u5230\u6807\u6CE8\u6A21\u5F0F",
   // 选择菜单
-  menuAddAnnotation: "\u6DFB\u52A0\u6807\u6CE8",
-  menuSelectColor: "\u9009\u62E9\u989C\u8272\u7ACB\u5373\u6807\u6CE8",
-  menuOrAddNote: "\u6216\u6DFB\u52A0\u6279\u6CE8",
   menuFullText: "\u5168\u6587\u6807\u6CE8",
   noticeCopied: "\u5DF2\u590D\u5236\u5230\u526A\u8D34\u677F",
   noticeAnnotationAdded: "\u6807\u6CE8\u5DF2\u6DFB\u52A0",
@@ -2229,9 +2226,6 @@ var en = {
   settingsAutoOpenAnnotation: "Auto-enter annotation mode",
   settingsAutoOpenAnnotationDesc: "Automatically switch to annotation mode when opening a note with annotations",
   // Selection menu
-  menuAddAnnotation: "Add Annotation",
-  menuSelectColor: "Pick a color to annotate",
-  menuOrAddNote: "Or add a note",
   menuFullText: "Full Text",
   noticeCopied: "Copied to clipboard",
   noticeAnnotationAdded: "Annotation added",
@@ -2469,7 +2463,6 @@ var SelectionMenu = class {
     this.menuEl.addEventListener("mouseup", (e) => e.stopPropagation());
     this.menuEl.addEventListener("focusin", (e) => e.stopPropagation());
     const header = this.menuEl.createDiv({ cls: "annotation-menu-header" });
-    header.createSpan({ text: loc.menuAddAnnotation, cls: "annotation-menu-title" });
     const closeBtn = header.createEl("button", { cls: "annotation-menu-close", text: loc.close });
     closeBtn.addEventListener("click", () => this.hide(true));
     this.setupMenuDrag(header);
@@ -2479,7 +2472,6 @@ var SelectionMenu = class {
     const previewText = this.selectedText.length > 80 ? this.selectedText.substring(0, 80) + "..." : this.selectedText;
     this.textPreviewSpan.textContent = `"${previewText}"`;
     const colorSection = scrollableContent.createDiv({ cls: "annotation-menu-section" });
-    colorSection.createEl("label", { text: loc.menuSelectColor });
     this.colorContainer = colorSection.createDiv({ cls: "annotation-color-buttons" });
     const settings = this.getSettings();
     const colors = getActiveColors(settings);
@@ -2504,7 +2496,6 @@ var SelectionMenu = class {
     }
     const noteSection = scrollableContent.createDiv({ cls: "annotation-menu-section" });
     const noteLabel = noteSection.createDiv({ cls: "annotation-note-label-row" });
-    noteLabel.createEl("label", { text: loc.menuOrAddNote });
     const charCount = noteLabel.createSpan({ cls: "annotation-char-count", text: loc.charCount(0, maxLen) });
     this.noteInput = noteSection.createEl("textarea", {
       cls: "annotation-note-input-small",

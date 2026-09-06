@@ -25,8 +25,8 @@
   max-height: 70vh;
   background: var(--background-primary);
   border: 1px solid var(--background-modifier-border);
-  border-radius: 8px;
-  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.15), 0 2px 6px rgba(0, 0, 0, 0.1);
+  border-radius: 10px;
+  box-shadow: 0 8px 28px rgba(0, 0, 0, 0.18), 0 2px 8px rgba(0, 0, 0, 0.1);
   padding: 0;
   font-size: 14px;
   animation: annotation-menu-fade-in 0.15s ease-out;
@@ -75,12 +75,6 @@
   -webkit-user-select: none;
 }
 
-.annotation-menu-title {
-  font-weight: 600;
-  color: var(--text-normal);
-  font-size: 14px;
-}
-
 .annotation-menu-close {
   width: 24px;
   height: 24px;
@@ -105,9 +99,21 @@
 }
 
 .annotation-menu-preview {
-  padding: 10px 14px;
-  background: var(--background-secondary);
+  padding: 6px 14px 10px;
   border-bottom: 1px solid var(--background-modifier-border);
+  position: relative;
+}
+
+.annotation-menu-preview::before {
+  content: "";
+  position: absolute;
+  left: 6px;
+  top: 6px;
+  bottom: 10px;
+  width: 3px;
+  border-radius: 2px;
+  background: var(--interactive-accent);
+  opacity: 0.55;
 }
 
 .annotation-menu-preview span {
@@ -166,7 +172,7 @@
 .annotation-color-buttons {
   display: flex;
   flex-wrap: wrap;
-  gap: 8px;
+  gap: 7px;
 }
 
 /* 双写类名抬高特异性（0,2,0）：移动端 app/主题会给 button 注入 padding（触控目标尺寸），
@@ -436,22 +442,24 @@
 
 .annotation-note-input-small {
   width: 100%;
-  padding: 8px 10px;
+  padding: 7px 9px;
   background: var(--background-primary);
   border: 1px solid var(--background-modifier-border);
-  border-radius: 6px;
+  border-radius: 8px;
   color: var(--text-normal);
   font-family: inherit;
   font-size: 13px;
   resize: vertical;
-  min-height: 60px;
+  min-height: 56px;
   box-sizing: border-box;
-  margin-bottom: 8px;
+  margin-bottom: 6px;
+  transition: border-color 0.15s ease, box-shadow 0.15s ease;
 }
 
 .annotation-note-input-small:focus {
   outline: none;
   border-color: var(--interactive-accent);
+  box-shadow: 0 0 0 1px var(--interactive-accent);
 }
 
 .annotation-btn-small {
@@ -464,7 +472,7 @@
   gap: 8px;
   justify-content: flex-start;
   flex-shrink: 0;
-  padding: 12px 14px;
+  padding: 8px 12px;
   border-top: 1px solid var(--background-modifier-border);
 }
 
@@ -474,9 +482,9 @@
 
 .annotation-note-label-row {
   display: flex;
-  justify-content: space-between;
+  justify-content: flex-end;
   align-items: center;
-  margin-bottom: 8px;
+  margin-bottom: 4px;
 }
 
 .annotation-note-label-row label {

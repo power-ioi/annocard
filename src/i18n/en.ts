@@ -57,9 +57,6 @@ export const en: LocaleDict = {
   settingsAutoOpenAnnotationDesc: "Automatically switch to annotation mode when opening a note with annotations",
 
   // Selection menu
-  menuAddAnnotation: "Add Annotation",
-  menuSelectColor: "Pick a color to annotate",
-  menuOrAddNote: "Or add a note",
   menuFullText: "Full Text",  noticeCopied: "Copied to clipboard",  noticeAnnotationAdded: "Annotation added",
   noticeAnnotationAndNoteAdded: "Annotation and note added",
   noticeTextNotFound: "Could not find the selected text in the file",

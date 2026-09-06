@@ -61,9 +61,6 @@ export interface LocaleDict {
   settingsAutoOpenAnnotationDesc: string;
 
   // 选择菜单 (SelectionMenu)
-  menuAddAnnotation: string;
-  menuSelectColor: string;
-  menuOrAddNote: string;
   menuFullText: string;
   noticeCopied: string;
   noticeAnnotationAdded: string;
