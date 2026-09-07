@@ -3088,9 +3088,17 @@
   color: var(--interactive-accent);
   background: var(--background-modifier-hover);
 }
+.annocard-cs-viewbtn svg,
+.annocard-cs-edgebtn svg {
+  width: 15px;
+  height: 15px;
+  min-width: 15px;
+  min-height: 15px;
+}
 .annocard-cs-order {
   font-size: 12px;
-  padding: 3px 6px;
+  height: 26px;
+  padding: 0 8px;
   border-radius: 6px;
   background: var(--background-secondary);
   color: var(--text-normal);

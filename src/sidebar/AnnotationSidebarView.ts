@@ -840,7 +840,7 @@ this.closeCardSetOverlay();
     const squareBtn = viewWrap.createEl("button", { cls: "annocard-cs-viewbtn", attr: { "aria-label": loc.cardSetViewSquare } });
     setIcon(squareBtn, "layout-grid");
     const barBtn = viewWrap.createEl("button", { cls: "annocard-cs-viewbtn", attr: { "aria-label": loc.cardSetViewBar } });
-    setIcon(barBtn, "rows-3");
+    setIcon(barBtn, "menu");
     const syncViewBtns = () => {
       squareBtn.toggleClass("is-active", this.cardSetView === "square");
       barBtn.toggleClass("is-active", this.cardSetView === "bar");

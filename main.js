@@ -5935,7 +5935,7 @@ var AnnotationSidebarView = class extends import_obsidian16.ItemView {
     const squareBtn = viewWrap.createEl("button", { cls: "annocard-cs-viewbtn", attr: { "aria-label": loc.cardSetViewSquare } });
     (0, import_obsidian16.setIcon)(squareBtn, "layout-grid");
     const barBtn = viewWrap.createEl("button", { cls: "annocard-cs-viewbtn", attr: { "aria-label": loc.cardSetViewBar } });
-    (0, import_obsidian16.setIcon)(barBtn, "rows-3");
+    (0, import_obsidian16.setIcon)(barBtn, "menu");
     const syncViewBtns = () => {
       squareBtn.toggleClass("is-active", this.cardSetView === "square");
       barBtn.toggleClass("is-active", this.cardSetView === "bar");
