@@ -5990,6 +5990,8 @@ var AnnotationSidebarView = class extends import_obsidian16.ItemView {
     };
     mkState("remember");
     mkState("forget");
+    const exitBtn = bar.createEl("button", { cls: "annocard-cs-exitbtn", text: loc.close });
+    exitBtn.addEventListener("click", () => this.closeCardSetOverlay());
     if (cards.length === 0) {
       root.createDiv({ cls: "annocard-cs-empty", text: loc.cardReviewEmpty });
       return;

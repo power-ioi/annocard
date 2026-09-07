@@ -902,6 +902,10 @@ this.closeCardSetOverlay();
     mkState("remember");
     mkState("forget");
 
+    // 退出按钮(关闭卡片集弹窗)
+    const exitBtn = bar.createEl("button", { cls: "annocard-cs-exitbtn", text: loc.close });
+    exitBtn.addEventListener("click", () => this.closeCardSetOverlay());
+
     if (cards.length === 0) {
       root.createDiv({ cls: "annocard-cs-empty", text: loc.cardReviewEmpty });
       return;
