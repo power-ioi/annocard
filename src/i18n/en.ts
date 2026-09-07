@@ -98,6 +98,8 @@ export const en: LocaleDict = {
   sidebarAllNotes: "All",
   sidebarExpandAll: "Expand",
   sidebarCollapseAll: "Collapse",
+  sidebarControlsCollapse: "Hide toolbar",
+  sidebarControlsExpand: "Show toolbar",
   sidebarSortLabel: "Sort",
   sidebarSearchLabel: "Search",
   sidebarFilterLabel: "Filter",

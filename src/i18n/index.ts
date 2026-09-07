@@ -100,6 +100,8 @@ export interface LocaleDict {
   sidebarAllNotes: string;
   sidebarExpandAll: string;
   sidebarCollapseAll: string;
+  sidebarControlsCollapse: string;
+  sidebarControlsExpand: string;
   sidebarSortLabel: string;
   sidebarSearchLabel: string;
   sidebarFilterLabel: string;

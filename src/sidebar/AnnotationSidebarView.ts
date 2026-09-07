@@ -40,6 +40,8 @@ export class AnnotationSidebarView extends ItemView {
   private batchSelectedIds: Set<string> = new Set();
   // AnnoCard 卡片内容折叠状态(true=隐藏标注内容与标签)
   private cardsCollapsed = false;
+  // AnnoCard 顶部控制区(工具栏+检索筛选)整体折叠状态
+  private controlsCollapsed = false;
   // AnnoCard 复习模式实例(打开时非空)
   private reviewMode: ReviewMode | null = null;
 
@@ -73,6 +75,9 @@ export class AnnotationSidebarView extends ItemView {
   private cardSetKeyHandler: ((e: KeyboardEvent) => void) | null = null;
   private expandBtn: HTMLElement | null = null;
   private collapseBtn: HTMLElement | null = null;
+  // 顶部控制区折叠开关
+  private controlsToggleBtn: HTMLElement | null = null;
+  private controlsBodyEl: HTMLElement | null = null;
   private batchBar: HTMLElement | null = null;
   private batchSelectedCount: HTMLElement | null = null;
   // 标签候选缓存(全库模式刷新时同步,供 TagSuggest 用)
@@ -123,8 +128,12 @@ export class AnnotationSidebarView extends ItemView {
     container.empty();
     container.addClass("annotation-sidebar");
 
-    this.renderToolbar(container);
-    this.renderSearchBar(container);
+    // 顶部控制区整体可折叠:开关条 + 折叠体(工具栏 + 检索筛选)
+    this.renderControlsToggle(container);
+    this.controlsBodyEl = container.createDiv({ cls: "annocard-controls-body" });
+    this.renderToolbar(this.controlsBodyEl);
+    this.renderSearchBar(this.controlsBodyEl);
+    this.setControlsCollapsed(this.controlsCollapsed);
     this.renderBatchBar(container);
 
     this.cardListEl = container.createDiv({ cls: "annotation-sidebar-card-list" });
@@ -194,6 +203,34 @@ this.closeCardSetOverlay();
   }
 
   // ========== 渲染方法 ==========
+
+  // 渲染顶部控制区折叠开关条(工具栏+检索筛选整体收起/展开)
+  private renderControlsToggle(container: HTMLElement): void {
+    const bar = container.createDiv({
+      cls: "annocard-controls-toggle",
+      attr: { "aria-label": this.controlsCollapsed ? t().sidebarControlsExpand : t().sidebarControlsCollapse },
+    });
+    bar.createSpan({ cls: "annocard-controls-toggle-icon" });
+    bar.createSpan({ cls: "annocard-controls-toggle-text" });
+    bar.addEventListener("click", () => {
+      this.controlsCollapsed = !this.controlsCollapsed;
+      this.setControlsCollapsed(this.controlsCollapsed);
+    });
+    this.controlsToggleBtn = bar;
+  }
+
+  // 应用控制区折叠状态并同步开关条图标/文案
+  private setControlsCollapsed(collapsed: boolean): void {
+    this.controlsBodyEl?.toggleClass("is-collapsed", collapsed);
+    const bar = this.controlsToggleBtn;
+    if (!bar) return;
+    bar.toggleClass("is-collapsed", collapsed);
+    const iconEl = bar.querySelector(".annocard-controls-toggle-icon");
+    if (iconEl) setIcon(iconEl as HTMLElement, collapsed ? "chevron-down" : "chevron-up");
+    const textEl = bar.querySelector(".annocard-controls-toggle-text");
+    if (textEl) textEl.textContent = collapsed ? t().sidebarControlsExpand : t().sidebarControlsCollapse;
+    bar.setAttribute("aria-label", collapsed ? t().sidebarControlsExpand : t().sidebarControlsCollapse);
+  }
 
   private renderToolbar(container: HTMLElement): void {
     // HiLighter 风格：顶部彩色标签行 + 工具栏按钮

@@ -98,6 +98,8 @@ export const zhCN: LocaleDict = {
   sidebarAllNotes: "全部",
   sidebarExpandAll: "展开",
   sidebarCollapseAll: "折叠",
+  sidebarControlsCollapse: "收起工具栏",
+  sidebarControlsExpand: "展开工具栏",
   sidebarSortLabel: "顺序",
   sidebarSearchLabel: "检索",
   sidebarFilterLabel: "筛选",

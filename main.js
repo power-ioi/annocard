@@ -2035,6 +2035,8 @@ var zhCN = {
   sidebarAllNotes: "\u5168\u90E8",
   sidebarExpandAll: "\u5C55\u5F00",
   sidebarCollapseAll: "\u6298\u53E0",
+  sidebarControlsCollapse: "\u6536\u8D77\u5DE5\u5177\u680F",
+  sidebarControlsExpand: "\u5C55\u5F00\u5DE5\u5177\u680F",
   sidebarSortLabel: "\u987A\u5E8F",
   sidebarSearchLabel: "\u68C0\u7D22",
   sidebarFilterLabel: "\u7B5B\u9009",
@@ -2265,6 +2267,8 @@ var en = {
   sidebarAllNotes: "All",
   sidebarExpandAll: "Expand",
   sidebarCollapseAll: "Collapse",
+  sidebarControlsCollapse: "Hide toolbar",
+  sidebarControlsExpand: "Show toolbar",
   sidebarSortLabel: "Sort",
   sidebarSearchLabel: "Search",
   sidebarFilterLabel: "Filter",
@@ -5272,6 +5276,8 @@ var AnnotationSidebarView = class extends import_obsidian16.ItemView {
     this.batchSelectedIds = /* @__PURE__ */ new Set();
     // AnnoCard 卡片内容折叠状态(true=隐藏标注内容与标签)
     this.cardsCollapsed = false;
+    // AnnoCard 顶部控制区(工具栏+检索筛选)整体折叠状态
+    this.controlsCollapsed = false;
     // AnnoCard 复习模式实例(打开时非空)
     this.reviewMode = null;
     // DOM 引用
@@ -5304,6 +5310,9 @@ var AnnotationSidebarView = class extends import_obsidian16.ItemView {
     this.cardSetKeyHandler = null;
     this.expandBtn = null;
     this.collapseBtn = null;
+    // 顶部控制区折叠开关
+    this.controlsToggleBtn = null;
+    this.controlsBodyEl = null;
     this.batchBar = null;
     this.batchSelectedCount = null;
     // 标签候选缓存(全库模式刷新时同步,供 TagSuggest 用)
@@ -5339,8 +5348,11 @@ var AnnotationSidebarView = class extends import_obsidian16.ItemView {
     const container = this.containerEl.children[1];
     container.empty();
     container.addClass("annotation-sidebar");
-    this.renderToolbar(container);
-    this.renderSearchBar(container);
+    this.renderControlsToggle(container);
+    this.controlsBodyEl = container.createDiv({ cls: "annocard-controls-body" });
+    this.renderToolbar(this.controlsBodyEl);
+    this.renderSearchBar(this.controlsBodyEl);
+    this.setControlsCollapsed(this.controlsCollapsed);
     this.renderBatchBar(container);
     this.cardListEl = container.createDiv({ cls: "annotation-sidebar-card-list" });
     this.setCardsCollapsed(this.cardsCollapsed);
@@ -5396,6 +5408,33 @@ var AnnotationSidebarView = class extends import_obsidian16.ItemView {
     this.allAnnotationsCache = null;
   }
   // ========== 渲染方法 ==========
+  // 渲染顶部控制区折叠开关条(工具栏+检索筛选整体收起/展开)
+  renderControlsToggle(container) {
+    const bar = container.createDiv({
+      cls: "annocard-controls-toggle",
+      attr: { "aria-label": this.controlsCollapsed ? t().sidebarControlsExpand : t().sidebarControlsCollapse }
+    });
+    bar.createSpan({ cls: "annocard-controls-toggle-icon" });
+    bar.createSpan({ cls: "annocard-controls-toggle-text" });
+    bar.addEventListener("click", () => {
+      this.controlsCollapsed = !this.controlsCollapsed;
+      this.setControlsCollapsed(this.controlsCollapsed);
+    });
+    this.controlsToggleBtn = bar;
+  }
+  // 应用控制区折叠状态并同步开关条图标/文案
+  setControlsCollapsed(collapsed) {
+    var _a;
+    (_a = this.controlsBodyEl) == null ? void 0 : _a.toggleClass("is-collapsed", collapsed);
+    const bar = this.controlsToggleBtn;
+    if (!bar) return;
+    bar.toggleClass("is-collapsed", collapsed);
+    const iconEl = bar.querySelector(".annocard-controls-toggle-icon");
+    if (iconEl) (0, import_obsidian16.setIcon)(iconEl, collapsed ? "chevron-down" : "chevron-up");
+    const textEl = bar.querySelector(".annocard-controls-toggle-text");
+    if (textEl) textEl.textContent = collapsed ? t().sidebarControlsExpand : t().sidebarControlsCollapse;
+    bar.setAttribute("aria-label", collapsed ? t().sidebarControlsExpand : t().sidebarControlsCollapse);
+  }
   renderToolbar(container) {
     const toolbar = container.createDiv({ cls: "annotation-sidebar-toolbar hl-highlight-toolbar" });
     const topRow = toolbar.createDiv({ cls: "hl-toolbar-top" });

@@ -2428,6 +2428,50 @@
   border-bottom: none;
 }
 
+/* —— 顶部控制区折叠开关条（收起/展开工具栏+检索筛选） —— */
+.annocard-controls-toggle {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  width: 100%;
+  height: 26px;
+  margin-bottom: 8px;
+  padding: 0;
+  border: 1px solid var(--hl-glass-border, var(--annocard-glass-border));
+  border-radius: 8px;
+  background: transparent;
+  color: var(--text-muted);
+  font-size: 12px;
+  font-weight: 500;
+  cursor: pointer;
+  opacity: 0.7;
+  transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+}
+.annocard-controls-toggle:hover {
+  opacity: 1;
+  background: rgba(var(--background-secondary-rgb), 0.45);
+  color: var(--text-normal);
+  transform: translateY(-1px);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+}
+.theme-dark .annocard-controls-toggle:hover {
+  background: rgba(255, 255, 255, 0.06);
+}
+.annocard-controls-toggle .annocard-controls-toggle-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+.annocard-controls-toggle .annocard-controls-toggle-icon svg {
+  width: 14px;
+  height: 14px;
+}
+/* 折叠时隐藏整个控制区主体（工具栏 + 检索筛选） */
+.annocard-controls-body.is-collapsed {
+  display: none;
+}
+
 /* 顶部行：标签 + 按钮组 */
 .hl-toolbar-top {
   display: flex;
@@ -3187,6 +3231,10 @@
   display: flex;
   flex-direction: column;
   gap: 8px;
+}
+/* 条状视图折叠：需覆盖上面的 display:flex（同特异性但位置靠后会反超） */
+.annocard-review-grid.is-bar.is-collapsed {
+  display: none;
 }
 .annocard-review-grid.is-bar .annocard-review-tile {
   min-height: 0;
