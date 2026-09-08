@@ -15,6 +15,3 @@ go.cmd
 
 # Obsidian 插件数据目录（运行时生成）
 annotations/
-
-# GitHub Actions workflows (��Ҫ workflow scope token)
-.github/workflows/
