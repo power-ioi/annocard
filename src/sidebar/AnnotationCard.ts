@@ -41,6 +41,8 @@ export function createAnnotationCard(
   const loc = t();
 
   const card = parent.createDiv({ cls: "annotation-sidebar-card" });
+  // 颜色类直接挂到卡片上（供 border-left-color 着色，替代 CSS :has 方案）
+  card.addClass(COLOR_CLASSES[annotation.color]);
   if (options?.batchMode) card.addClass("annocard-card-batch");
   if (options?.selected) card.addClass("annocard-card-selected");
   if (annotation.archived) card.addClass("annocard-card-archived");

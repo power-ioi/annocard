@@ -124,7 +124,9 @@ export class AnnotationSidebarView extends ItemView {
   }
 
   async onOpen(): Promise<void> {
-    const container = this.containerEl.children[1] as HTMLElement;
+    // contentEl 即 view-content（Obsidian API 保证），避免 containerEl.children[1]
+    // 在移动/平板端 leaf 结构差异下取错元素导致 .annotation-sidebar 前缀规则失效
+    const container = this.contentEl;
     container.empty();
     container.addClass("annotation-sidebar");
 
@@ -688,6 +690,8 @@ this.closeCardSetOverlay();
       attr: { type: "text", placeholder: t().cardTagAddPlaceholder, size: "12" },
     });
     tagsEl.appendChild(input);
+    // 折叠模式下保持标签区可见（替代 CSS :not(:has(...)) 方案）
+    tagsEl.addClass("annocard-tags-editing");
     input.focus();
 
     // TagSuggest 绑定
@@ -698,6 +702,10 @@ this.closeCardSetOverlay();
     });
 
     let committed = false;
+    const removeInput = () => {
+      input.remove();
+      tagsEl.removeClass("annocard-tags-editing");
+    };
     const commitHandler = () => {
       if (committed) return;
       committed = true;
@@ -711,13 +719,13 @@ this.closeCardSetOverlay();
       } else if (e.key === "Escape") {
         e.preventDefault();
         committed = true;
-        input.remove();
+        removeInput();
       }
     });
     input.addEventListener("blur", () => {
       // 失焦时若有输入则提交,否则移除
       if (input.value.trim()) commitHandler();
-      else input.remove();
+      else removeInput();
     });
   }
 
@@ -730,11 +738,13 @@ this.closeCardSetOverlay();
     const tag = input.value.trim();
     if (!tag) {
       input.remove();
+      tagsEl.removeClass("annocard-tags-editing");
       return;
     }
     const existing = cardData.annotation.tags ?? [];
     if (existing.includes(tag)) {
       input.remove();
+      tagsEl.removeClass("annocard-tags-editing");
       return;
     }
     try {
@@ -750,6 +760,7 @@ this.closeCardSetOverlay();
     } catch (e) {
       console.error("添加标签失败:", e);
       input.remove();
+      tagsEl.removeClass("annocard-tags-editing");
     }
   }
 

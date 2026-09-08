@@ -188,8 +188,9 @@
    border-box 下 padding 会把 28px 圆点撑成椭圆。
    padding 必须用 !important：3.0.17 曾试验纯特异性方案（双写类名 0,2,0），桌面
    dev:mobile 模拟探针通过，但真机 iPad 回归证实宿主规则强于该特异性（或为内联注入），
-   模拟环境不足以代表真机 CSS——!important 是真机验证过的唯一可靠手段，
-   CSS lint 的 Avoid !important Warning 已知并刻意接受 */
+   模拟环境不足以代表真机 CSS——!important 是真机验证过的唯一可靠手段。
+   这是全文件仅存的一处 !important（其余已用父级前缀提升特异性替代），
+   CSS lint 的 Avoid !important Warning 对此一行已知并刻意接受 */
 .annotation-color-dot.annotation-color-dot {
   width: 28px;
   height: 28px;
@@ -2011,77 +2012,14 @@
 }
 
 /* —— 工具栏：毛玻璃卡片 —— */
-.annotation-sidebar-toolbar {
-  background: var(--annocard-glass-bg) !important;
+.annotation-sidebar .annotation-sidebar-toolbar {
+  background: var(--annocard-glass-bg);
   backdrop-filter: blur(12px);
   -webkit-backdrop-filter: blur(12px);
   border: 1px solid var(--annocard-glass-border);
   border-radius: 12px;
   padding: 12px;
   box-shadow: 0 4px 15px rgba(0, 0, 0, 0.05);
-}
-
-/* —— 工具栏按钮：统一毛玻璃风 —— */
-.annotation-sidebar-toolbar-btn {
-  border: none !important;
-  border-radius: 8px !important;
-  font-size: 0.82em;
-  font-weight: 500;
-  padding: 8px 12px !important;
-  background: rgba(var(--background-secondary-rgb), 0.4) !important;
-  backdrop-filter: blur(8px);
-  -webkit-backdrop-filter: blur(8px);
-  color: var(--text-muted);
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06),
-              inset 0 1px 0 rgba(255, 255, 255, 0.15);
-  transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
-}
-.annotation-sidebar-toolbar-btn:hover {
-  background: rgba(var(--background-secondary-rgb), 0.7) !important;
-  color: var(--text-normal);
-  transform: translateY(-1px);
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
-  border-color: transparent !important;
-}
-.annotation-sidebar-toolbar-btn.is-active {
-  background: var(--annocard-accent) !important;
-  color: #fff;
-  border-color: transparent !important;
-  box-shadow: 0 4px 14px rgba(var(--annocard-accent-rgb), 0.35);
-}
-.theme-dark .annotation-sidebar-toolbar-btn {
-  background: rgba(255, 255, 255, 0.05) !important;
-}
-.theme-dark .annotation-sidebar-toolbar-btn:hover {
-  background: rgba(255, 255, 255, 0.1) !important;
-}
-
-/* —— 搜索框：聚焦时粉色光环 —— */
-.annotation-sidebar-search {
-  background: var(--background-primary) !important;
-  border: 1px solid var(--annocard-glass-border) !important;
-  border-radius: 8px !important;
-  box-shadow: inset 0 1px 3px rgba(0, 0, 0, 0.05);
-  transition: all 0.25s;
-}
-.annotation-sidebar-search:focus {
-  border-color: var(--annocard-accent) !important;
-  box-shadow: 0 0 0 3px rgba(var(--annocard-accent-rgb), 0.15);
-  outline: none;
-}
-
-/* —— 标签筛选下拉框：毛玻璃 —— */
-.annotation-sidebar-tag-select {
-  background: rgba(var(--background-secondary-rgb), 0.4) !important;
-  backdrop-filter: blur(8px);
-  -webkit-backdrop-filter: blur(8px);
-  border: none !important;
-  border-radius: 8px !important;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06),
-              inset 0 1px 0 rgba(255, 255, 255, 0.15);
-}
-.theme-dark .annotation-sidebar-tag-select {
-  background: rgba(255, 255, 255, 0.05) !important;
 }
 
 /* —— 主卡片：HiLighter 风格（左侧色条 + 毛玻璃 + 拉出动画）—— */
@@ -2138,17 +2076,17 @@
 .annotation-sidebar-card .annotation-list-dot.ac-9 { --annocard-card-color: var(--annotation-dot-color9, #8395a7); }
 .annotation-sidebar-card .annotation-list-dot.ac-10 { --annocard-card-color: var(--annotation-dot-color10, #7f8c3f); }
 
-/* 当 card 内含色点时，把色点的颜色应用到左侧色条 */
-.annotation-sidebar-card:has(.annotation-list-dot.ac-1) { border-left-color: var(--annotation-dot-color1, #ff6b6b); }
-.annotation-sidebar-card:has(.annotation-list-dot.ac-2) { border-left-color: var(--annotation-dot-color2, #54a0ff); }
-.annotation-sidebar-card:has(.annotation-list-dot.ac-3) { border-left-color: var(--annotation-dot-color3, #ffd43b); }
-.annotation-sidebar-card:has(.annotation-list-dot.ac-4) { border-left-color: var(--annotation-dot-color4, #26c281); }
-.annotation-sidebar-card:has(.annotation-list-dot.ac-5) { border-left-color: var(--annotation-dot-color5, #9b59b6); }
-.annotation-sidebar-card:has(.annotation-list-dot.ac-6) { border-left-color: var(--annotation-dot-color6, #ff9f43); }
-.annotation-sidebar-card:has(.annotation-list-dot.ac-7) { border-left-color: var(--annotation-dot-color7, #00d2d3); }
-.annotation-sidebar-card:has(.annotation-list-dot.ac-8) { border-left-color: var(--annotation-dot-color8, #f368e0); }
-.annotation-sidebar-card:has(.annotation-list-dot.ac-9) { border-left-color: var(--annotation-dot-color9, #8395a7); }
-.annotation-sidebar-card:has(.annotation-list-dot.ac-10) { border-left-color: var(--annotation-dot-color10, #7f8c3f); }
+/* 卡片元素直接带颜色类（AnnotationCard 渲染时添加），把颜色应用到左侧色条 */
+.annotation-sidebar-card.ac-1 { border-left-color: var(--annotation-dot-color1, #ff6b6b); }
+.annotation-sidebar-card.ac-2 { border-left-color: var(--annotation-dot-color2, #54a0ff); }
+.annotation-sidebar-card.ac-3 { border-left-color: var(--annotation-dot-color3, #ffd43b); }
+.annotation-sidebar-card.ac-4 { border-left-color: var(--annotation-dot-color4, #26c281); }
+.annotation-sidebar-card.ac-5 { border-left-color: var(--annotation-dot-color5, #9b59b6); }
+.annotation-sidebar-card.ac-6 { border-left-color: var(--annotation-dot-color6, #ff9f43); }
+.annotation-sidebar-card.ac-7 { border-left-color: var(--annotation-dot-color7, #00d2d3); }
+.annotation-sidebar-card.ac-8 { border-left-color: var(--annotation-dot-color8, #f368e0); }
+.annotation-sidebar-card.ac-9 { border-left-color: var(--annotation-dot-color9, #8395a7); }
+.annotation-sidebar-card.ac-10 { border-left-color: var(--annotation-dot-color10, #7f8c3f); }
 
 /* —— 卡片头部：颜色圆点带光晕 —— */
 .annotation-sidebar-card-header {
@@ -2257,36 +2195,36 @@
   gap: 6px;
   margin-top: 8px;
 }
-.annotation-sidebar-card-actions .annotation-btn {
-  border: none !important;
-  border-radius: 8px !important;
+.annotation-sidebar .annotation-sidebar-card-actions .annotation-btn {
+  border: none;
+  border-radius: 8px;
   font-size: 0.8em;
   font-weight: 500;
-  padding: 5px 12px !important;
-  background: rgba(var(--background-secondary-rgb), 0.4) !important;
-  color: var(--text-muted) !important;
+  padding: 5px 12px;
+  background: rgba(var(--background-secondary-rgb), 0.4);
+  color: var(--text-muted);
   box-shadow: 0 2px 6px rgba(0, 0, 0, 0.05);
   transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
   min-width: auto;
   flex: 0;
 }
-.annotation-sidebar-card-actions .annotation-btn:hover {
+.annotation-sidebar .annotation-sidebar-card-actions .annotation-btn:hover {
   transform: translateY(-1px);
   box-shadow: 0 4px 10px rgba(0, 0, 0, 0.08);
 }
-.annotation-sidebar-card-actions .annotation-btn-secondary:hover {
-  background: var(--annocard-accent) !important;
-  color: #fff !important;
+.annotation-sidebar .annotation-sidebar-card-actions .annotation-btn-secondary:hover {
+  background: var(--annocard-accent);
+  color: #fff;
 }
-.annotation-sidebar-card-actions .annotation-btn-danger:hover {
-  background: #ff5e5e !important;
-  color: #fff !important;
+.annotation-sidebar .annotation-sidebar-card-actions .annotation-btn-danger:hover {
+  background: #ff5e5e;
+  color: #fff;
 }
-.theme-dark .annotation-sidebar-card-actions .annotation-btn {
-  background: rgba(255, 255, 255, 0.05) !important;
+.theme-dark .annotation-sidebar .annotation-sidebar-card-actions .annotation-btn {
+  background: rgba(255, 255, 255, 0.05);
 }
-.theme-dark .annotation-sidebar-card-actions .annotation-btn:hover {
-  background: rgba(255, 255, 255, 0.12) !important;
+.theme-dark .annotation-sidebar .annotation-sidebar-card-actions .annotation-btn:hover {
+  background: rgba(255, 255, 255, 0.12);
 }
 
 /* —— 徽章：归档/复习 —— */
@@ -2360,37 +2298,37 @@
   padding: 14px 18px;
   font-style: italic;
 }
-.annocard-review-actions .annotation-btn {
-  border: none !important;
-  border-radius: 10px !important;
+.annocard-review-overlay .annocard-review-actions .annotation-btn {
+  border: none;
+  border-radius: 10px;
   font-size: 0.95em;
   font-weight: 500;
-  padding: 10px 20px !important;
+  padding: 10px 20px;
   backdrop-filter: blur(8px);
   -webkit-backdrop-filter: blur(8px);
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
   transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
 }
-.annocard-review-actions .annotation-btn:hover {
+.annocard-review-overlay .annocard-review-actions .annotation-btn:hover {
   transform: translateY(-2px);
   box-shadow: 0 6px 18px rgba(0, 0, 0, 0.15);
 }
-.annocard-review-again {
+.annocard-review-overlay .annocard-review-again {
   /* 手机端 Obsidian 无 --background-secondary-rgb 变量,固定红色调保证按钮背景可见 */
-  background: rgba(208, 82, 78, 0.12) !important;
-  color: #d0524e !important;
+  background: rgba(208, 82, 78, 0.12);
+  color: #d0524e;
 }
-.annocard-review-again:hover {
-  background: #d0524e !important;
-  color: #fff !important;
+.annocard-review-overlay .annocard-review-again:hover {
+  background: #d0524e;
+  color: #fff;
 }
-.annocard-review-mastered {
-  background: rgba(38, 194, 129, 0.15) !important;
-  color: #26c281 !important;
+.annocard-review-overlay .annocard-review-mastered {
+  background: rgba(38, 194, 129, 0.15);
+  color: #26c281;
 }
-.annocard-review-mastered:hover {
-  background: #26c281 !important;
-  color: #fff !important;
+.annocard-review-overlay .annocard-review-mastered:hover {
+  background: #26c281;
+  color: #fff;
 }
 
 /* —— 移动端适配：减小位移、保留毛玻璃 —— */
@@ -2481,40 +2419,40 @@
 }
 
 /* HiLighter 彩色标签按钮（本文/全库） */
-.hl-btn-subtle.annotation-sidebar-tab {
+.annotation-sidebar .hl-btn-subtle.annotation-sidebar-tab {
   flex: 1;
-  border: none !important;
-  border-radius: 8px !important;
-  font-size: 13px !important;
-  font-weight: 500 !important;
-  padding: 10px 12px !important;
-  background: rgba(var(--background-secondary-rgb), 0.4) !important;
+  border: none;
+  border-radius: 8px;
+  font-size: 13px;
+  font-weight: 500;
+  padding: 10px 12px;
+  background: rgba(var(--background-secondary-rgb), 0.4);
   backdrop-filter: blur(8px);
   -webkit-backdrop-filter: blur(8px);
-  color: var(--text-muted) !important;
+  color: var(--text-muted);
   transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
   cursor: pointer;
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06),
-              inset 0 1px 0 rgba(255, 255, 255, 0.15) !important;
+              inset 0 1px 0 rgba(255, 255, 255, 0.15);
   appearance: none;
-  border-bottom: none !important;
+  border-bottom: none;
 }
-.hl-btn-subtle.annotation-sidebar-tab:hover {
-  background: rgba(var(--background-secondary-rgb), 0.7) !important;
-  color: var(--text-normal) !important;
+.annotation-sidebar .hl-btn-subtle.annotation-sidebar-tab:hover {
+  background: rgba(var(--background-secondary-rgb), 0.7);
+  color: var(--text-normal);
   transform: translateY(-1px);
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08) !important;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
 }
-.hl-btn-subtle.annotation-sidebar-tab.is-active {
-  background: var(--annocard-accent) !important;
-  color: #fff !important;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06) !important;
+.annotation-sidebar .hl-btn-subtle.annotation-sidebar-tab.is-active {
+  background: var(--annocard-accent);
+  color: #fff;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
 }
-.theme-dark .hl-btn-subtle.annotation-sidebar-tab {
-  background: rgba(255, 255, 255, 0.05) !important;
+.theme-dark .annotation-sidebar .hl-btn-subtle.annotation-sidebar-tab {
+  background: rgba(255, 255, 255, 0.05);
 }
-.theme-dark .hl-btn-subtle.annotation-sidebar-tab:hover {
-  background: rgba(255, 255, 255, 0.1) !important;
+.theme-dark .annotation-sidebar .hl-btn-subtle.annotation-sidebar-tab:hover {
+  background: rgba(255, 255, 255, 0.1);
 }
 
 /* 操作按钮组 */
@@ -2525,55 +2463,54 @@
 }
 
 /* HiLighter 风格小按钮（导出/批量/复习/排序） */
-.hl-btn-all,
-.hl-toolbar-actions .hl-color-select {
-  border: none !important;
-  border-radius: 8px !important;
-  font-size: 12px !important;
-  font-weight: 500 !important;
-  padding: 8px 10px !important;
-  background: rgba(var(--background-secondary-rgb), 0.4) !important;
+.annotation-sidebar .hl-btn-all,
+.annotation-sidebar .hl-toolbar-actions .hl-color-select {
+  border: none;
+  border-radius: 8px;
+  font-size: 12px;
+  font-weight: 500;
+  padding: 8px 10px;
+  background: rgba(var(--background-secondary-rgb), 0.4);
   backdrop-filter: blur(8px);
   -webkit-backdrop-filter: blur(8px);
-  color: var(--text-muted) !important;
+  color: var(--text-muted);
   transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
   cursor: pointer;
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06),
-              inset 0 1px 0 rgba(255, 255, 255, 0.15) !important;
+              inset 0 1px 0 rgba(255, 255, 255, 0.15);
   white-space: nowrap;
 }
-.hl-btn-all:hover {
-  background: rgba(var(--background-secondary-rgb), 0.7) !important;
-  color: var(--text-normal) !important;
+.annotation-sidebar .hl-btn-all:hover {
+  background: rgba(var(--background-secondary-rgb), 0.7);
+  color: var(--text-normal);
   transform: translateY(-1px);
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08) !important;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
 }
-.hl-btn-all.is-active {
-  background: var(--annocard-accent) !important;
-  color: #fff !important;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06) !important;
+.annotation-sidebar .hl-btn-all.is-active {
+  background: var(--annocard-accent);
+  color: #fff;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
 }
-.hl-btn-all.is-hidden { display: none !important; }
-.theme-dark .hl-btn-all,
-.theme-dark .hl-toolbar-actions .hl-color-select {
-  background: rgba(255, 255, 255, 0.05) !important;
+.theme-dark .annotation-sidebar .hl-btn-all,
+.theme-dark .annotation-sidebar .hl-toolbar-actions .hl-color-select {
+  background: rgba(255, 255, 255, 0.05);
 }
-.theme-dark .hl-btn-all:hover {
-  background: rgba(255, 255, 255, 0.1) !important;
+.theme-dark .annotation-sidebar .hl-btn-all:hover {
+  background: rgba(255, 255, 255, 0.1);
 }
 
 /* 排序下拉 */
-.hl-toolbar-actions .hl-color-select.annotation-sidebar-sort-select {
+.annotation-sidebar .hl-toolbar-actions .hl-color-select.annotation-sidebar-sort-select {
   min-width: 80px;
   text-align: center;
   text-align-last: center;
   appearance: none;
   -webkit-appearance: none;
-  padding: 8px 6px !important;
+  padding: 8px 6px;
 }
-.hl-toolbar-actions .hl-color-select.annotation-sidebar-sort-select:hover {
-  background: rgba(var(--background-secondary-rgb), 0.7) !important;
-  color: var(--text-normal) !important;
+.annotation-sidebar .hl-toolbar-actions .hl-color-select.annotation-sidebar-sort-select:hover {
+  background: rgba(var(--background-secondary-rgb), 0.7);
+  color: var(--text-normal);
 }
 
 /* —— 筛选区域（检索 + 筛选 两行） —— */
@@ -2602,21 +2539,21 @@
 }
 
 /* HiLighter 搜索框 */
-.hl-search-input.annotation-sidebar-search-input {
+.annotation-sidebar .hl-search-input.annotation-sidebar-search-input {
   flex: 1;
   min-width: 0;
-  border-radius: 4px !important;
-  background: var(--background-primary) !important;
-  border: 1px solid var(--hl-glass-border, var(--annocard-glass-border)) !important;
-  font-size: 13px !important;
-  padding: 8px 12px !important;
-  margin-bottom: 0 !important;
+  border-radius: 4px;
+  background: var(--background-primary);
+  border: 1px solid var(--hl-glass-border, var(--annocard-glass-border));
+  font-size: 13px;
+  padding: 8px 12px;
+  margin-bottom: 0;
   transition: all 0.3s;
-  box-shadow: inset 0 1px 3px rgba(0, 0, 0, 0.05) !important;
+  box-shadow: inset 0 1px 3px rgba(0, 0, 0, 0.05);
 }
-.hl-search-input.annotation-sidebar-search-input:focus {
-  border-color: var(--annocard-accent) !important;
-  box-shadow: 0 0 0 3px rgba(var(--annocard-accent-rgb), 0.15) !important;
+.annotation-sidebar .hl-search-input.annotation-sidebar-search-input:focus {
+  border-color: var(--annocard-accent);
+  box-shadow: 0 0 0 3px rgba(var(--annocard-accent-rgb), 0.15);
 }
 
 /* 筛选行 */
@@ -2628,7 +2565,10 @@
   flex-wrap: nowrap;
 }
 
-/* HiLighter 颜色圆点 */
+/* HiLighter 颜色圆点（侧边栏与悬浮筛选面板共用，不加父级前缀）
+   border/padding 必须用 !important：与下方 28px 圆点同因——iPad 真机宿主
+   会给 button 注入触控目标 padding，3.0.17 证实纯特异性方案在真机失败，
+   一旦撑开 14px 圆点就会变形为椭圆（平板端悬浮筛选弹窗实测回归） */
 .hl-h-color-dot.annotation-sidebar-color-btn {
   width: 14px;
   height: 14px;
@@ -2657,7 +2597,7 @@
 
 /* 全部按钮（彩虹圈） */
 .hl-h-color-dot.hl-dot-all {
-  background: conic-gradient(from 0deg, #ff6b6b, #54a0ff, #ffd43b, #26c281, #9b59b6, #ff6b6b) !important;
+  background: conic-gradient(from 0deg, #ff6b6b, #54a0ff, #ffd43b, #26c281, #9b59b6, #ff6b6b);
   box-shadow: 0 0 10px rgba(128, 128, 128, 0.3);
 }
 .hl-h-color-dot.hl-dot-all.active {
@@ -2665,16 +2605,16 @@
 }
 
 /* 颜色圆点 — 复用 annotation-list-dot 的颜色变量 */
-.hl-h-color-dot.ac-1 { background: var(--annotation-dot-color1, #ff6b6b) !important; box-shadow: 0 0 10px rgba(255, 107, 107, 0.3); }
-.hl-h-color-dot.ac-2 { background: var(--annotation-dot-color2, #54a0ff) !important; box-shadow: 0 0 10px rgba(84, 160, 255, 0.3); }
-.hl-h-color-dot.ac-3 { background: var(--annotation-dot-color3, #ffd43b) !important; box-shadow: 0 0 10px rgba(255, 212, 59, 0.3); }
-.hl-h-color-dot.ac-4 { background: var(--annotation-dot-color4, #26c281) !important; box-shadow: 0 0 10px rgba(38, 194, 129, 0.3); }
-.hl-h-color-dot.ac-5 { background: var(--annotation-dot-color5, #9b59b6) !important; box-shadow: 0 0 10px rgba(155, 89, 182, 0.3); }
-.hl-h-color-dot.ac-6 { background: var(--annotation-dot-color6, #ff9f43) !important; box-shadow: 0 0 10px rgba(255, 159, 67, 0.3); }
-.hl-h-color-dot.ac-7 { background: var(--annotation-dot-color7, #00d2d3) !important; box-shadow: 0 0 10px rgba(0, 210, 211, 0.3); }
-.hl-h-color-dot.ac-8 { background: var(--annotation-dot-color8, #f368e0) !important; box-shadow: 0 0 10px rgba(243, 104, 224, 0.3); }
-.hl-h-color-dot.ac-9 { background: var(--annotation-dot-color9, #8395a7) !important; box-shadow: 0 0 10px rgba(131, 149, 167, 0.3); }
-.hl-h-color-dot.ac-10 { background: var(--annotation-dot-color10, #7f8c3f) !important; box-shadow: 0 0 10px rgba(127, 140, 63, 0.3); }
+.hl-h-color-dot.ac-1 { background: var(--annotation-dot-color1, #ff6b6b); box-shadow: 0 0 10px rgba(255, 107, 107, 0.3); }
+.hl-h-color-dot.ac-2 { background: var(--annotation-dot-color2, #54a0ff); box-shadow: 0 0 10px rgba(84, 160, 255, 0.3); }
+.hl-h-color-dot.ac-3 { background: var(--annotation-dot-color3, #ffd43b); box-shadow: 0 0 10px rgba(255, 212, 59, 0.3); }
+.hl-h-color-dot.ac-4 { background: var(--annotation-dot-color4, #26c281); box-shadow: 0 0 10px rgba(38, 194, 129, 0.3); }
+.hl-h-color-dot.ac-5 { background: var(--annotation-dot-color5, #9b59b6); box-shadow: 0 0 10px rgba(155, 89, 182, 0.3); }
+.hl-h-color-dot.ac-6 { background: var(--annotation-dot-color6, #ff9f43); box-shadow: 0 0 10px rgba(255, 159, 67, 0.3); }
+.hl-h-color-dot.ac-7 { background: var(--annotation-dot-color7, #00d2d3); box-shadow: 0 0 10px rgba(0, 210, 211, 0.3); }
+.hl-h-color-dot.ac-8 { background: var(--annotation-dot-color8, #f368e0); box-shadow: 0 0 10px rgba(243, 104, 224, 0.3); }
+.hl-h-color-dot.ac-9 { background: var(--annotation-dot-color9, #8395a7); box-shadow: 0 0 10px rgba(131, 149, 167, 0.3); }
+.hl-h-color-dot.ac-10 { background: var(--annotation-dot-color10, #7f8c3f); box-shadow: 0 0 10px rgba(127, 140, 63, 0.3); }
 
 /* 标签筛选下拉（HiLighter 风格） */
 .hl-color-row .hl-color-select.annotation-sidebar-tag-select {
@@ -2714,10 +2654,10 @@
   width: 17px;
   height: 17px;
 }
-.is-mobile .hl-btn-subtle.annotation-sidebar-tab,
-.is-mobile .hl-btn-all {
-  font-size: 11px !important;
-  padding: 4px 6px !important;
+.is-mobile .annotation-sidebar .hl-btn-subtle.annotation-sidebar-tab,
+.is-mobile .annotation-sidebar .hl-btn-all {
+  font-size: 11px;
+  padding: 4px 6px;
 }
 
 /* ============================================================
@@ -2733,17 +2673,17 @@
   flex: 1 1 auto;
   min-width: 0;
   align-items: center;
-  gap: 4px !important;
+  gap: 4px;
 }
-.annocard-top-left .hl-btn-subtle.annotation-sidebar-tab {
-  flex: 0 0 auto !important;
-  padding: 4px 7px !important;
-  font-size: 11px !important;
+.annotation-sidebar .annocard-top-left .hl-btn-subtle.annotation-sidebar-tab {
+  flex: 0 0 auto;
+  padding: 4px 7px;
+  font-size: 11px;
   white-space: nowrap;
 }
-.annocard-top-left .hl-btn-all {
-  padding: 4px 7px !important;
-  font-size: 11px !important;
+.annotation-sidebar .annocard-top-left .hl-btn-all {
+  padding: 4px 7px;
+  font-size: 11px;
   white-space: nowrap;
 }
 .annocard-sort-label {
@@ -2751,11 +2691,11 @@
   font-size: 11px;
   min-width: auto;
 }
-.annocard-top-left .hl-color-select.annotation-sidebar-sort-select {
+.annotation-sidebar .annocard-top-left .hl-color-select.annotation-sidebar-sort-select {
   flex: 1 1 60px;
   min-width: 0;
-  padding: 4px 2px !important;
-  font-size: 11px !important;
+  padding: 4px 2px;
+  font-size: 11px;
 }
 /* 第二行：顺序 + 导出/批量/复习 */
 .annocard-toolbar-second {
@@ -2772,16 +2712,17 @@
 .annocard-top-left .hl-color-select.annotation-sidebar-tag-select {
   flex: 1 1 44px;
   min-width: 0;
-  padding: 4px 2px !important;
-  font-size: 11px !important;
+  padding: 4px 2px;
+  font-size: 11px;
 }
 /* 右侧图标按钮组 */
 .annocard-top-right {
   margin-left: auto;
   flex-shrink: 0;
   align-items: center;
-  gap: 4px !important;
+  gap: 4px;
 }
+/* padding 必须 !important：同卡片图标按钮，iPad 真机宿主触控 padding 会反超纯特异性 */
 .hl-btn-all.annocard-icon-toolbar-btn {
   width: 26px;
   height: 26px;
@@ -2790,12 +2731,16 @@
   align-items: center;
   justify-content: center;
 }
+/* 隐藏导出按钮（仅"当前笔记"模式显示；置于图标按钮规则之后以覆盖其 display） */
+.hl-btn-all.annocard-icon-toolbar-btn.is-hidden { display: none; }
 .hl-btn-all.annocard-icon-toolbar-btn svg {
   width: 14px;
   height: 14px;
 }
 
-/* 卡片底部小图标按钮（编辑/打开/删除/标签） */
+/* 卡片底部小图标按钮（编辑/打开/删除/标签）
+   padding/border/背景必须 !important：iPad 真机宿主给 button 注入触控
+   padding/背景，纯特异性 (0,2,0) 会被反超，图标按钮会被撑变形（3.3.4 实测回归） */
 .annocard-icon-btn {
   display: inline-flex;
   align-items: center;
@@ -2839,11 +2784,12 @@
   display: none;
 }
 
-/* 折叠模式：隐藏批注与标签（保留标注原文），含内联标签输入框时标签区保持可见 */
+/* 折叠模式：隐藏批注与标签（保留标注原文），含内联标签输入框时标签区保持可见
+   （输入框打开时由 JS 给标签区加 annocard-tags-editing 类，替代 :has 方案） */
 .annotation-sidebar-card-list.annocard-cards-collapsed .annotation-sidebar-card-note {
   display: none;
 }
-.annotation-sidebar-card-list.annocard-cards-collapsed .annocard-card-tags:not(:has(.annocard-tag-input)) {
+.annotation-sidebar-card-list.annocard-cards-collapsed .annocard-card-tags:not(.annocard-tags-editing) {
   display: none;
 }
 /* 折叠模式下同时隐藏卡片底部操作按钮行（编辑/打开/删除/标签） */
@@ -2985,12 +2931,12 @@
 }
 
 /* 顶部 标签/顺序 下拉选择框:灰黑色毛玻璃 */
-.annotation-sidebar-tag-select,
-.annotation-sidebar-sort-select {
-  background-color: rgba(38, 38, 42, 0.55) !important;
+.annotation-sidebar .annotation-sidebar-tag-select,
+.annotation-sidebar .annotation-sidebar-sort-select {
+  background-color: rgba(38, 38, 42, 0.55);
   -webkit-backdrop-filter: blur(14px) saturate(150%);
   backdrop-filter: blur(14px) saturate(150%);
-  color: #ffffff !important;
+  color: #ffffff;
   color-scheme: dark;
   border: 1px solid rgba(255, 255, 255, 0.14);
   border-radius: 8px;
@@ -3232,8 +3178,9 @@
   flex-direction: column;
   gap: 8px;
 }
-/* 条状视图折叠：需覆盖上面的 display:flex（同特异性但位置靠后会反超） */
-.annocard-review-grid.is-bar.is-collapsed {
+/* 条状视图折叠：双写类名抬到 (0,4,0)，确保压过上方 display:flex；
+   移动/平板端样式文件若存在新旧混杂，此规则是折叠生效的唯一保障 */
+.annocard-review-grid.annocard-review-grid.is-bar.is-collapsed {
   display: none;
 }
 .annocard-review-grid.is-bar .annocard-review-tile {

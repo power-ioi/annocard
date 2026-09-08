@@ -4545,6 +4545,7 @@ function createAnnotationCard(parent, cardData, handlers, options) {
   const { annotation, fileName } = cardData;
   const loc = t();
   const card = parent.createDiv({ cls: "annotation-sidebar-card" });
+  card.addClass(COLOR_CLASSES[annotation.color]);
   if (options == null ? void 0 : options.batchMode) card.addClass("annocard-card-batch");
   if (options == null ? void 0 : options.selected) card.addClass("annocard-card-selected");
   if (annotation.archived) card.addClass("annocard-card-archived");
@@ -5345,7 +5346,7 @@ var AnnotationSidebarView = class extends import_obsidian16.ItemView {
     return "lucide-bookmark";
   }
   async onOpen() {
-    const container = this.containerEl.children[1];
+    const container = this.contentEl;
     container.empty();
     container.addClass("annotation-sidebar");
     this.renderControlsToggle(container);
@@ -5813,6 +5814,7 @@ var AnnotationSidebarView = class extends import_obsidian16.ItemView {
       attr: { type: "text", placeholder: t().cardTagAddPlaceholder, size: "12" }
     });
     tagsEl.appendChild(input);
+    tagsEl.addClass("annocard-tags-editing");
     input.focus();
     const suggest = new TagSuggest(this.app, input, () => this.allTagCandidates);
     suggest.onSelect((suggestion) => {
@@ -5820,6 +5822,10 @@ var AnnotationSidebarView = class extends import_obsidian16.ItemView {
       void this.commitTagInput(cardData, input, tagsEl);
     });
     let committed = false;
+    const removeInput = () => {
+      input.remove();
+      tagsEl.removeClass("annocard-tags-editing");
+    };
     const commitHandler = () => {
       if (committed) return;
       committed = true;
@@ -5832,12 +5838,12 @@ var AnnotationSidebarView = class extends import_obsidian16.ItemView {
       } else if (e.key === "Escape") {
         e.preventDefault();
         committed = true;
-        input.remove();
+        removeInput();
       }
     });
     input.addEventListener("blur", () => {
       if (input.value.trim()) commitHandler();
-      else input.remove();
+      else removeInput();
     });
   }
   // 提交标签输入(由 Enter/blur 触发)
@@ -5846,11 +5852,13 @@ var AnnotationSidebarView = class extends import_obsidian16.ItemView {
     const tag = input.value.trim();
     if (!tag) {
       input.remove();
+      tagsEl.removeClass("annocard-tags-editing");
       return;
     }
     const existing = (_a = cardData.annotation.tags) != null ? _a : [];
     if (existing.includes(tag)) {
       input.remove();
+      tagsEl.removeClass("annocard-tags-editing");
       return;
     }
     try {
@@ -5863,6 +5871,7 @@ var AnnotationSidebarView = class extends import_obsidian16.ItemView {
     } catch (e) {
       console.error("\u6DFB\u52A0\u6807\u7B7E\u5931\u8D25:", e);
       input.remove();
+      tagsEl.removeClass("annocard-tags-editing");
     }
   }
   // 删除单个标签
