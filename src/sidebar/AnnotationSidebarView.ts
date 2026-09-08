@@ -578,16 +578,18 @@ this.closeCardSetOverlay();
       new Notice(t().cardNoticeNoSelection);
       return;
     }
-    confirmBatchDelete(this.app, this.fileManager, selected, async () => {
-      // 刷新标注视图
-      const notePaths = new Set(selected.map((c) => c.notePath));
-      for (const notePath of notePaths) {
-        await this.plugin.refreshAnnotationView(notePath);
-      }
-      // 清空选中,重新加载列表
-      this.batchSelectedIds.clear();
-      this.updateBatchBar();
-      await this.refresh();
+    confirmBatchDelete(this.app, this.fileManager, selected, () => {
+      void (async () => {
+        // 刷新标注视图
+        const notePaths = new Set(selected.map((c) => c.notePath));
+        for (const notePath of notePaths) {
+          await this.plugin.refreshAnnotationView(notePath);
+        }
+        // 清空选中,重新加载列表
+        this.batchSelectedIds.clear();
+        this.updateBatchBar();
+        await this.refresh();
+      })();
     });
   }
 
@@ -619,13 +621,13 @@ this.closeCardSetOverlay();
     const parent = noteEl.parentElement;
     if (!parent) return;
 
-    // 创建 textarea
-    const textarea = document.createElement("textarea");
-    textarea.className = "annocard-inline-note-edit";
-    textarea.value = cardData.annotation.note;
-    textarea.setAttribute("rows", "2");
+    // 创建 textarea(createEl 为 Obsidian 全局助手)
     const maxLen = this.plugin.settings.maxNoteLength;
-    textarea.setAttribute("maxlength", String(maxLen));
+    const textarea = createEl("textarea", {
+      cls: "annocard-inline-note-edit",
+      value: cardData.annotation.note,
+      attr: { rows: "2", maxlength: String(maxLen) },
+    });
 
     parent.replaceChild(textarea, noteEl);
     textarea.focus();

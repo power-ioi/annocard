@@ -5723,14 +5723,16 @@ var AnnotationSidebarView = class extends import_obsidian16.ItemView {
       new import_obsidian16.Notice(t().cardNoticeNoSelection);
       return;
     }
-    confirmBatchDelete(this.app, this.fileManager, selected, async () => {
-      const notePaths = new Set(selected.map((c) => c.notePath));
-      for (const notePath of notePaths) {
-        await this.plugin.refreshAnnotationView(notePath);
-      }
-      this.batchSelectedIds.clear();
-      this.updateBatchBar();
-      await this.refresh();
+    confirmBatchDelete(this.app, this.fileManager, selected, () => {
+      void (async () => {
+        const notePaths = new Set(selected.map((c) => c.notePath));
+        for (const notePath of notePaths) {
+          await this.plugin.refreshAnnotationView(notePath);
+        }
+        this.batchSelectedIds.clear();
+        this.updateBatchBar();
+        await this.refresh();
+      })();
     });
   }
   // 批量打标签
@@ -5756,12 +5758,12 @@ var AnnotationSidebarView = class extends import_obsidian16.ItemView {
   async handleInlineEditNote(cardData, noteEl) {
     const parent = noteEl.parentElement;
     if (!parent) return;
-    const textarea = document.createElement("textarea");
-    textarea.className = "annocard-inline-note-edit";
-    textarea.value = cardData.annotation.note;
-    textarea.setAttribute("rows", "2");
     const maxLen = this.plugin.settings.maxNoteLength;
-    textarea.setAttribute("maxlength", String(maxLen));
+    const textarea = createEl("textarea", {
+      cls: "annocard-inline-note-edit",
+      value: cardData.annotation.note,
+      attr: { rows: "2", maxlength: String(maxLen) }
+    });
     parent.replaceChild(textarea, noteEl);
     textarea.focus();
     textarea.select();
